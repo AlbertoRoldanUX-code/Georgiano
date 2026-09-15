@@ -67,6 +67,7 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
     else playWrongSound()
     setScore(s => ({ c: s.c + (correct ? 1 : 0), w: s.w + (correct ? 0 : 1) }))
     setTimeout(() => {
+      document.activeElement?.blur?.()
       if (qIdx + 1 >= questions.length) setDone(true)
       else setQIdx(i => i + 1)
     }, 900)
@@ -139,7 +140,7 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
             }
             return (
               <button
-                key={opt.roman}
+                key={`${qIdx}-${opt.roman}`}
                 className={cls}
                 onClick={() => handlePick(opt)}
                 disabled={!!picked}

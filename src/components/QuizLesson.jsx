@@ -59,6 +59,7 @@ export default function QuizLesson({ navigate, progressAPI, category }) {
     setHistory(h => [...h, correct ? 'c' : 'w'])
 
     setTimeout(() => {
+      document.activeElement?.blur?.()
       if (idx + 1 >= questions.length) setDone(true)
       else setIdx(i => i + 1)
     }, 900)
@@ -121,7 +122,7 @@ export default function QuizLesson({ navigate, progressAPI, category }) {
           }
           return (
             <button
-              key={opt.id}
+              key={`${idx}-${opt.id}`}
               className={cls}
               onClick={() => handlePick(opt)}
               disabled={picked !== null}
