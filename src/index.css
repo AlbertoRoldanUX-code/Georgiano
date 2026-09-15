@@ -434,6 +434,20 @@ body {
   line-height: 1;
   color: var(--text);
 }
+.practice-example {
+  text-align: center;
+}
+.practice-example-geo {
+  font-size: 1.5rem;
+  font-family: 'Sylfaen', 'BPG Arial', serif;
+  color: var(--text);
+  line-height: 1.2;
+}
+.practice-example-en {
+  font-size: 0.9375rem;
+  color: var(--text2);
+  margin-top: 4px;
+}
 .sound-btn {
   display: inline-flex;
   align-items: center;

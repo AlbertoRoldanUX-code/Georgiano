@@ -4,7 +4,7 @@ import {
   playSelectSound,
   playCorrectSound,
   playWrongSound,
-  speakGeorgian,
+  speakWord,
 } from '../utils/audio'
 
 /** Duolingo: ~12–15 ejercicios / lección (~2–5 min). */
@@ -20,7 +20,7 @@ function getOptions(correct, all) {
 }
 
 export default function AlphabetLesson({ navigate, progressAPI }) {
-  const [tab, setTab] = useState('browse') // 'browse' | 'practice'
+  const [tab, setTab] = useState('browse')
   const [selected, setSelected] = useState(null)
 
   const [questions, setQuestions] = useState([])
@@ -67,11 +67,8 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
     else playWrongSound()
     setScore(s => ({ c: s.c + (correct ? 1 : 0), w: s.w + (correct ? 0 : 1) }))
     setTimeout(() => {
-      if (qIdx + 1 >= questions.length) {
-        setDone(true)
-      } else {
-        setQIdx(i => i + 1)
-      }
+      if (qIdx + 1 >= questions.length) setDone(true)
+      else setQIdx(i => i + 1)
     }, 900)
   }
 
@@ -119,13 +116,17 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
 
         <div className="practice-prompt">
           <div className="practice-letter">{q.letter}</div>
+          <div className="practice-example">
+            <div className="practice-example-geo">{q.example}</div>
+            <div className="practice-example-en">{q.exMeaning}</div>
+          </div>
           <button
             type="button"
             className="sound-btn"
-            onClick={() => speakGeorgian(q.letter)}
-            aria-label="Escuchar pronunciación"
+            onClick={() => speakWord(q.example)}
+            aria-label="Listen to the example word"
           >
-            ▶ Escuchar
+            ▶ Listen
           </button>
         </div>
 
@@ -189,21 +190,21 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
           <div className="letter-detail-big">{selected.letter}</div>
           <div className="letter-detail-meta">
             <div className="letter-detail-name">{selected.name}</div>
-            <div className="letter-detail-roman">Romanización: <strong>{selected.roman}</strong></div>
+            <div className="letter-detail-roman">Romanization: <strong>{selected.roman}</strong></div>
             <div className="letter-detail-ipa">IPA: {selected.ipa}</div>
+          </div>
+          <div className="letter-example">
+            <div className="letter-example-geo">{selected.example}</div>
+            <div className="letter-example-meaning">{selected.exMeaning}</div>
           </div>
           <button
             type="button"
             className="sound-btn"
             style={{ margin: '12px auto 0', display: 'flex' }}
-            onClick={() => speakGeorgian(selected.letter)}
+            onClick={() => speakWord(selected.example)}
           >
-            ▶ Escuchar
+            ▶ Listen
           </button>
-          <div className="letter-example">
-            <div className="letter-example-geo">{selected.example}</div>
-            <div className="letter-example-meaning">«{selected.exMeaning}»</div>
-          </div>
         </div>
       )}
 

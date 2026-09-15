@@ -40,26 +40,29 @@ export function playWrongSound() {
   tone(220, 0.18, 'triangle', 0.1)
 }
 
-function letterAudioUrl(letter) {
-  return `/audio/${letter.codePointAt(0).toString(16)}.mp3`
+/** Clave de archivo para una palabra georgiana. */
+export function wordAudioKey(text) {
+  return [...text].map(c => c.codePointAt(0).toString(16)).join('-')
 }
 
-/** Reproduce pronunciación georgiana (MP3 pregenerados). */
-export function speakGeorgian(letter) {
+function playUrl(url, fallbackText) {
   if (currentAudio) {
     currentAudio.pause()
     currentAudio = null
   }
-
-  const audio = new Audio(letterAudioUrl(letter))
+  const audio = new Audio(url)
   currentAudio = audio
   audio.play().catch(() => {
-    // Último recurso: nombre aproximado con TTS del sistema
     if (!window.speechSynthesis) return
     window.speechSynthesis.cancel()
-    const utter = new SpeechSynthesisUtterance(letter)
+    const utter = new SpeechSynthesisUtterance(fallbackText)
     utter.lang = 'ka-GE'
     utter.rate = 0.85
     window.speechSynthesis.speak(utter)
   })
+}
+
+/** Reproduce una palabra georgiana (MP3 pregenerado). */
+export function speakWord(text) {
+  playUrl(`/audio/words/${wordAudioKey(text)}.mp3`, text)
 }

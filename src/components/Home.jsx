@@ -55,8 +55,8 @@ export default function Home({ navigate, progress }) {
         <button className="module-card" onClick={() => setShowVocabMenu(v => !v)}>
           <div className="module-icon">🔤</div>
           <div className="module-info">
-            <div className="module-title">Vocabulario</div>
-            <div className="module-desc">Quiz de opción múltiple por categoría</div>
+            <div className="module-title">Vocabulary</div>
+            <div className="module-desc">English → Georgian multiple choice</div>
             {progress.learnedWords.length > 0 && (
               <div className="module-progress">
                 {progress.learnedWords.length}/{allWords.length} aprendidas
@@ -70,7 +70,7 @@ export default function Home({ navigate, progress }) {
           <div className="category-grid">
             <button className="cat-btn" onClick={() => { setShowVocabMenu(false); navigate('quiz', { category: null }) }}>
               <div className="cat-btn-icon">🌍</div>
-              <div className="cat-btn-title">Todo</div>
+              <div className="cat-btn-title">All</div>
               <div className="cat-btn-count">{allWords.length} palabras</div>
             </button>
             {Object.entries(vocabulary).map(([key, cat]) => (
@@ -91,8 +91,8 @@ export default function Home({ navigate, progress }) {
         <button className="module-card" onClick={() => setShowTransMenu(v => !v)}>
           <div className="module-icon">✍️</div>
           <div className="module-info">
-            <div className="module-title">Traducción</div>
-            <div className="module-desc">Escribe la respuesta en español</div>
+            <div className="module-title">Translation</div>
+            <div className="module-desc">Type the Georgian from English</div>
           </div>
           <div className="module-arrow" style={{ transform: showTransMenu ? 'rotate(90deg)' : 'none', transition: '0.2s' }}>›</div>
         </button>
@@ -101,7 +101,7 @@ export default function Home({ navigate, progress }) {
           <div className="category-grid">
             <button className="cat-btn" onClick={() => { setShowTransMenu(false); navigate('translation', { category: null }) }}>
               <div className="cat-btn-icon">🌍</div>
-              <div className="cat-btn-title">Todo</div>
+              <div className="cat-btn-title">All</div>
               <div className="cat-btn-count">{allWords.length} palabras</div>
             </button>
             {Object.entries(vocabulary).map(([key, cat]) => (

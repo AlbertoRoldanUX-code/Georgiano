@@ -9,25 +9,28 @@ function normalize(s) {
   return s
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/['ʼʹ]/g, "'")
+    .replace(/\s+/g, ' ')
     .trim()
 }
 
 function isCorrect(input, word) {
   const n = normalize(input)
   if (!n) return false
-  const accepted = [word.spanish, ...word.alts].map(normalize)
-  return accepted.some(a => a === n || a.split('/').map(p => p.trim()).includes(n))
+  const accepted = [word.georgian, word.roman].map(normalize)
+  const romanLoose = normalize(word.roman.replace(/'/g, ''))
+  return accepted.some(a => a === n) || n === romanLoose
 }
 
 export default function TranslationLesson({ navigate, progressAPI, category }) {
   const pool = category ? vocabulary[category].words : allWords
-  const catTitle = category ? vocabulary[category].title : 'Todo'
+  const catTitle = category ? vocabulary[category].title : 'All'
 
-  const [questions] = useState(() => shuffle(pool))
+  const [questions] = useState(() => shuffle(pool).slice(0, 12))
   const [idx, setIdx] = useState(0)
   const [input, setInput] = useState('')
-  const [status, setStatus] = useState(null) // null | 'correct' | 'wrong'
+  const [status, setStatus] = useState(null)
   const [history, setHistory] = useState([])
   const [showHint, setShowHint] = useState(false)
   const [done, setDone] = useState(false)
@@ -81,14 +84,14 @@ export default function TranslationLesson({ navigate, progressAPI, category }) {
           <div className="result-emoji">
             {pct >= 90 ? '🏆' : pct >= 70 ? '⭐' : '📝'}
           </div>
-          <h2 className="result-title">¡Ronda completada!</h2>
+          <h2 className="result-title">Round complete!</h2>
           <div className="result-score">{score}/{questions.length}</div>
-          <div className="result-sub">{catTitle} · {pct}% correcto</div>
+          <div className="result-sub">{catTitle} · {pct}% correct</div>
           <div className="result-actions">
             <button className="btn btn-primary" onClick={() => { setIdx(0); setHistory([]); setDone(false) }}>
-              Repetir
+              Again
             </button>
-            <button className="btn btn-ghost" onClick={() => navigate('home')}>Inicio</button>
+            <button className="btn btn-ghost" onClick={() => navigate('home')}>Home</button>
           </div>
         </div>
       </div>
@@ -101,7 +104,7 @@ export default function TranslationLesson({ navigate, progressAPI, category }) {
     <div className="screen">
       <nav className="nav">
         <button className="nav-back" onClick={() => navigate('home')}>‹</button>
-        <span className="nav-title">Traducción · {catTitle}</span>
+        <span className="nav-title">Translation · {catTitle}</span>
       </nav>
 
       <div className="pbar">
@@ -119,11 +122,11 @@ export default function TranslationLesson({ navigate, progressAPI, category }) {
 
       <div className="trans-card">
         <div style={{ fontSize: '0.8125rem', color: 'var(--text3)', marginBottom: 8 }}>
-          Traduce al español:
+          Translate to Georgian:
         </div>
-        <div className="q-geo">{q.georgian}</div>
+        <div className="q-geo" style={{ fontFamily: 'inherit', fontSize: '2rem' }}>{q.english}</div>
         <div className={`trans-hint ${showHint ? 'visible' : 'hidden'}`}>
-          🔤 {q.roman}
+          Hint: starts with «{q.georgian[0]}»
         </div>
       </div>
 
@@ -135,7 +138,7 @@ export default function TranslationLesson({ navigate, progressAPI, category }) {
             type="text"
             value={input}
             onChange={e => setInput(e.target.value)}
-            placeholder="Escribe en español…"
+            placeholder="Georgian or romanization…"
             disabled={status !== null}
             autoComplete="off"
             autoCorrect="off"
@@ -149,13 +152,12 @@ export default function TranslationLesson({ navigate, progressAPI, category }) {
 
       {status === 'correct' && (
         <div className="feedback-msg correct">
-          ✓ ¡Correcto! — {q.spanish}
+          ✓ Correct! — {q.georgian} ({q.roman})
         </div>
       )}
       {status === 'wrong' && (
         <div className="feedback-msg wrong">
-          ✗ La respuesta era: <strong>{q.spanish}</strong>
-          {q.alts.length > 0 && <span> (también: {q.alts.join(', ')})</span>}
+          ✗ Answer: <strong>{q.georgian}</strong> ({q.roman})
         </div>
       )}
 
@@ -165,7 +167,7 @@ export default function TranslationLesson({ navigate, progressAPI, category }) {
           style={{ marginTop: 4, width: '100%' }}
           onClick={handleSkip}
         >
-          No sé — saltar
+          Skip
         </button>
       )}
     </div>
