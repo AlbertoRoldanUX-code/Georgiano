@@ -71,6 +71,24 @@ body {
   font-size: 1rem;
   font-weight: 600;
   color: var(--text2);
+  flex: 1;
+}
+
+.nav-action {
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 8px 12px;
+  border-radius: var(--r);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.nav-action:hover {
+  border-color: var(--primary);
+  color: var(--primary);
 }
 
 /* ── Progress bar ── */
