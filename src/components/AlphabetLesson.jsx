@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { alphabet } from '../data/alphabet'
 import {
-  playSelectSound,
   playCorrectSound,
   playWrongSound,
   speakWord,
+  unlockAudio,
 } from '../utils/audio'
 
 /** Duolingo-style short round (~2–5 min). */
@@ -34,6 +34,7 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
   const total = questions.length || SESSION_SIZE
 
   function startPractice() {
+    unlockAudio()
     const qs = shuffle(alphabet).slice(0, SESSION_SIZE)
     setQuestions(qs)
     setQIdx(0)
@@ -51,9 +52,8 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
 
   function handlePick(opt) {
     if (picked) return
-    playSelectSound()
-    setPicked(opt.roman)
     const correct = opt.roman === questions[qIdx].roman
+    setPicked(opt.roman)
     if (correct) playCorrectSound()
     else playWrongSound()
     setScore(s => ({ c: s.c + (correct ? 1 : 0), w: s.w + (correct ? 0 : 1) }))

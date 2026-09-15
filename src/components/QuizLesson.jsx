@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { vocabulary, allWords } from '../data/vocabulary'
-import { playSelectSound, playCorrectSound, playWrongSound } from '../utils/audio'
+import { playCorrectSound, playWrongSound, unlockAudio } from '../utils/audio'
 
 /** Duolingo-style short round (~2–3 min). */
 const SESSION_SIZE = 10
@@ -32,6 +32,7 @@ export default function QuizLesson({ navigate, progressAPI, category }) {
   const { recordAnswer } = progressAPI
 
   function startRound() {
+    unlockAudio()
     const qs = pickQuestions(pool)
     setQuestions(qs)
     setIdx(0)
@@ -43,9 +44,8 @@ export default function QuizLesson({ navigate, progressAPI, category }) {
 
   function handlePick(opt) {
     if (picked !== null) return
-    playSelectSound()
-    setPicked(opt.id)
     const correct = opt.id === questions[idx].id
+    setPicked(opt.id)
     if (correct) playCorrectSound()
     else playWrongSound()
     recordAnswer(questions[idx].id, correct)
