@@ -1,6 +1,6 @@
 import { useReducer } from 'react'
 import { vocabulary, allWords } from '../data/vocabulary'
-import { playCorrectSound, playWrongSound, unlockAudio } from '../utils/audio'
+import { playCorrectSound, playWrongSound } from '../utils/audio'
 
 const SESSION_SIZE = 10
 
@@ -23,10 +23,11 @@ function createRound(pool) {
     questions,
     idx: 0,
     opts: getOptions(questions[0], pool),
-    questionId: 1,
-    feedback: null,
+    status: 'prompt',
+    pickedId: null,
     history: [],
     done: false,
+    step: 1,
   }
 }
 
@@ -35,30 +36,28 @@ function reducer(state, action) {
     case 'boot':
       return createRound(action.pool)
     case 'answer': {
-      if (state.feedback || state.done) return state
+      if (state.status !== 'prompt' || state.done) return state
       const q = state.questions[state.idx]
       const correct = action.pickedId === q.id
       return {
         ...state,
-        feedback: {
-          questionId: state.questionId,
-          pickedId: action.pickedId,
-          correctId: q.id,
-        },
+        status: 'feedback',
+        pickedId: action.pickedId,
         history: [...state.history, correct ? 'c' : 'w'],
       }
     }
     case 'next': {
       const next = state.idx + 1
       if (next >= state.questions.length) {
-        return { ...state, done: true, feedback: null }
+        return { ...state, done: true, status: 'prompt', pickedId: null }
       }
       return {
         ...state,
         idx: next,
         opts: getOptions(state.questions[next], action.pool),
-        questionId: state.questionId + 1,
-        feedback: null,
+        status: 'prompt',
+        pickedId: null,
+        step: state.step + 1,
       }
     }
     default:
@@ -71,13 +70,10 @@ export default function QuizLesson({ navigate, progressAPI, category }) {
   const catTitle = category ? vocabulary[category].title : 'All'
   const [state, dispatch] = useReducer(reducer, pool, createRound)
   const { recordAnswer } = progressAPI
-
-  const feedbackLive =
-    state.feedback && state.feedback.questionId === state.questionId
+  const showingFeedback = state.status === 'feedback'
 
   function handlePick(opt) {
-    if (feedbackLive || state.done) return
-    unlockAudio()
+    if (state.status !== 'prompt' || state.done) return
     const q = state.questions[state.idx]
     const correct = opt.id === q.id
     dispatch({ type: 'answer', pickedId: opt.id })
@@ -104,11 +100,7 @@ export default function QuizLesson({ navigate, progressAPI, category }) {
           <div className="result-score">{score}/{state.questions.length}</div>
           <div className="result-sub">{catTitle} · {pct}% correct</div>
           <div className="result-actions">
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={() => { unlockAudio(); dispatch({ type: 'boot', pool }) }}
-            >
+            <button type="button" className="btn btn-primary" onClick={() => dispatch({ type: 'boot', pool })}>
               Again
             </button>
             <button type="button" className="btn btn-ghost" onClick={() => navigate('home')}>Home</button>
@@ -146,21 +138,20 @@ export default function QuizLesson({ navigate, progressAPI, category }) {
         <div className="q-geo" style={{ fontFamily: 'inherit', fontSize: '2.25rem' }}>{q.english}</div>
       </div>
 
-      <div className="options-stack" key={state.questionId}>
+      <div className="options-stack" key={state.step}>
         {state.opts.map(opt => {
           let cls = 'option-row'
-          if (feedbackLive) {
-            if (opt.id === state.feedback.correctId) cls += ' correct'
-            else if (opt.id === state.feedback.pickedId) cls += ' wrong'
+          if (showingFeedback) {
+            if (opt.id === q.id) cls += ' is-correct'
+            else if (opt.id === state.pickedId) cls += ' is-wrong'
           }
           return (
             <button
-              key={`${state.questionId}-${opt.id}`}
+              key={`${state.step}-${opt.id}`}
               type="button"
               className={cls}
-              onPointerDown={unlockAudio}
               onClick={() => handlePick(opt)}
-              disabled={feedbackLive}
+              disabled={showingFeedback}
             >
               <span style={{ fontFamily: 'Sylfaen, BPG Arial, serif', fontSize: '1.25rem' }}>{opt.georgian}</span>
             </button>

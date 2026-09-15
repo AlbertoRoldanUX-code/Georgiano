@@ -1,11 +1,6 @@
 import { useReducer, useState } from 'react'
 import { alphabet } from '../data/alphabet'
-import {
-  playCorrectSound,
-  playWrongSound,
-  speakWord,
-  unlockAudio,
-} from '../utils/audio'
+import { playCorrectSound, playWrongSound, speakWord } from '../utils/audio'
 
 const SESSION_SIZE = 12
 
@@ -21,12 +16,13 @@ function getOptions(correct, all) {
 const initial = {
   active: false,
   done: false,
+  status: 'prompt', // 'prompt' | 'feedback' — colors ONLY while 'feedback'
   questions: [],
   idx: 0,
   opts: [],
-  questionId: 0,
-  feedback: null, // { questionId, picked, correct } | null
+  picked: null,
   score: { c: 0, w: 0 },
+  step: 0, // increments every question; used as React remount key
 }
 
 function reducer(state, action) {
@@ -36,25 +32,23 @@ function reducer(state, action) {
       return {
         active: true,
         done: false,
+        status: 'prompt',
         questions,
         idx: 0,
         opts: getOptions(questions[0], alphabet),
-        questionId: 1,
-        feedback: null,
+        picked: null,
         score: { c: 0, w: 0 },
+        step: 1,
       }
     }
     case 'answer': {
-      if (state.feedback || state.done || !state.active) return state
+      if (state.status !== 'prompt' || state.done) return state
       const q = state.questions[state.idx]
       const correct = action.picked === q.roman
       return {
         ...state,
-        feedback: {
-          questionId: state.questionId,
-          picked: action.picked,
-          correct: q.roman,
-        },
+        status: 'feedback',
+        picked: action.picked,
         score: {
           c: state.score.c + (correct ? 1 : 0),
           w: state.score.w + (correct ? 0 : 1),
@@ -64,14 +58,18 @@ function reducer(state, action) {
     case 'next': {
       const next = state.idx + 1
       if (next >= state.questions.length) {
-        return { ...state, done: true, feedback: null }
+        return { ...state, done: true, status: 'prompt', picked: null }
       }
       return {
-        ...state,
+        active: true,
+        done: false,
+        status: 'prompt',
+        questions: state.questions,
         idx: next,
         opts: getOptions(state.questions[next], alphabet),
-        questionId: state.questionId + 1,
-        feedback: null,
+        picked: null,
+        score: state.score,
+        step: state.step + 1,
       }
     }
     case 'exit':
@@ -88,15 +86,12 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
 
   const { progress, recordAlphabetSeen } = progressAPI
   const total = state.questions.length || SESSION_SIZE
-  const feedbackLive =
-    state.feedback && state.feedback.questionId === state.questionId
+  const showingFeedback = state.status === 'feedback'
 
   function startPractice() {
-    unlockAudio()
     const questions = shuffle(alphabet).slice(0, SESSION_SIZE)
     dispatch({ type: 'boot', questions })
     setTab('practice')
-    // Same tap → iOS allows play
     speakWord(questions[0].example)
   }
 
@@ -106,25 +101,16 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
   }
 
   function handlePick(opt) {
-    if (feedbackLive || state.done) return
-    unlockAudio()
+    if (state.status !== 'prompt' || state.done) return
     const q = state.questions[state.idx]
     const correct = opt.roman === q.roman
     dispatch({ type: 'answer', picked: opt.roman })
     if (correct) playCorrectSound()
     else playWrongSound()
 
-    const idx = state.idx
-    const questions = state.questions
-
     window.setTimeout(() => {
       document.activeElement?.blur?.()
-      const next = idx + 1
       dispatch({ type: 'next' })
-      if (next < questions.length) {
-        // Context already unlocked by the answer tap
-        speakWord(questions[next].example)
-      }
     }, 900)
   }
 
@@ -182,7 +168,7 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
           <span style={{ fontSize: '0.8rem', color: 'var(--error)', fontWeight: 600, marginLeft: 8 }}>✗ {state.score.w}</span>
         </div>
 
-        <div className="practice-prompt">
+        <div className="practice-prompt" key={`q-${state.step}`}>
           <div className="practice-letter">{q.letter}</div>
           <div className="practice-example">
             <div className="practice-example-geo">{q.example}</div>
@@ -191,32 +177,28 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
           <button
             type="button"
             className="sound-btn"
-            onPointerDown={unlockAudio}
-            onClick={() => {
-              unlockAudio()
-              speakWord(q.example)
-            }}
+            onClick={() => speakWord(q.example)}
             aria-label="Listen to the example word"
           >
             ▶ Listen
           </button>
         </div>
 
-        <div className="options-stack" key={state.questionId}>
+        <div className="options-stack" key={`opts-${state.step}`}>
           {state.opts.map(opt => {
             let cls = 'option-row'
-            if (feedbackLive) {
-              if (opt.roman === state.feedback.correct) cls += ' correct'
-              else if (opt.roman === state.feedback.picked) cls += ' wrong'
+            // Colors exist ONLY during feedback status for this step
+            if (showingFeedback) {
+              if (opt.roman === q.roman) cls += ' is-correct'
+              else if (opt.roman === state.picked) cls += ' is-wrong'
             }
             return (
               <button
-                key={`${state.questionId}-${opt.roman}`}
+                key={`${state.step}-${opt.roman}`}
                 type="button"
                 className={cls}
-                onPointerDown={unlockAudio}
                 onClick={() => handlePick(opt)}
-                disabled={feedbackLive}
+                disabled={showingFeedback}
               >
                 {opt.roman}
               </button>
@@ -245,7 +227,6 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
         <button
           type="button"
           className={`alpha-tab ${tab === 'practice' ? 'active' : ''}`}
-          onPointerDown={unlockAudio}
           onClick={startPractice}
         >
           Practice
@@ -282,11 +263,7 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
             type="button"
             className="sound-btn"
             style={{ margin: '12px auto 0', display: 'flex' }}
-            onPointerDown={unlockAudio}
-            onClick={() => {
-              unlockAudio()
-              speakWord(selected.example)
-            }}
+            onClick={() => speakWord(selected.example)}
           >
             ▶ Listen
           </button>

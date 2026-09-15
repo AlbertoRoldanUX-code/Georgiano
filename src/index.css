@@ -487,22 +487,39 @@ body {
   font-family: inherit;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
   color: var(--text);
   text-align: left;
   -webkit-tap-highlight-color: transparent;
   outline: none;
+  -webkit-touch-callout: none;
+  user-select: none;
 }
-@media (hover: hover) {
+/* Never sticky-hover on iPhone — primary-light looks almost like error red */
+@media (hover: hover) and (pointer: fine) {
   .option-row:hover:not(:disabled) { border-color: var(--primary); background: var(--primary-light); }
 }
 .option-row:focus,
-.option-row:focus-visible {
+.option-row:active {
   outline: none;
-  box-shadow: none;
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--text);
 }
-.option-row.correct { border-color: var(--success); background: var(--success-bg); color: var(--success); }
-.option-row.wrong   { border-color: var(--error);   background: var(--error-bg);   color: var(--error); }
+.option-row.is-correct,
+.option-row.is-correct:active,
+.option-row.is-correct:focus {
+  border-color: var(--success) !important;
+  background: var(--success-bg) !important;
+  color: var(--success) !important;
+}
+.option-row.is-wrong,
+.option-row.is-wrong:active,
+.option-row.is-wrong:focus {
+  border-color: var(--error) !important;
+  background: var(--error-bg) !important;
+  color: var(--error) !important;
+}
 .option-row:disabled { cursor: default; opacity: 1; }
 
 /* ── Translation ── */
