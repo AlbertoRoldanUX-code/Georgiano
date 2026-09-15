@@ -7,82 +7,84 @@ function getAudioContext() {
   return audioCtx
 }
 
-/** Call from a user gesture so iOS/Safari allows sound. */
-export async function unlockAudio() {
+/** Must stay sync with the tap so iOS unlocks audio. */
+export function unlockAudio() {
   const ctx = getAudioContext()
   if (!ctx) return
   if (ctx.state === 'suspended') {
+    ctx.resume().catch(() => {})
+  }
+}
+
+function beep(ctx, freq, when, duration, volume, type = 'sine') {
+  const t0 = ctx.currentTime + when
+  const osc = ctx.createOscillator()
+  const gain = ctx.createGain()
+  osc.type = type
+  osc.frequency.setValueAtTime(freq, t0)
+  gain.gain.setValueAtTime(Math.max(volume, 0.001), t0)
+  gain.gain.exponentialRampToValueAtTime(0.01, t0 + duration)
+  osc.connect(gain)
+  gain.connect(ctx.destination)
+  osc.start(t0)
+  osc.stop(t0 + duration)
+}
+
+function withAudio(play) {
+  const ctx = getAudioContext()
+  if (!ctx) return
+  const run = () => {
     try {
-      await ctx.resume()
+      play(ctx)
     } catch {
       // ignore
     }
   }
-}
-
-async function tone(freq, duration, type = 'sine', volume = 0.22) {
-  try {
-    await unlockAudio()
-    const ctx = getAudioContext()
-    if (!ctx) return
-
-    const osc = ctx.createOscillator()
-    const gain = ctx.createGain()
-    osc.type = type
-    osc.frequency.setValueAtTime(freq, ctx.currentTime)
-    gain.gain.setValueAtTime(volume, ctx.currentTime)
-    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + duration)
-    osc.connect(gain)
-    gain.connect(ctx.destination)
-    osc.start(ctx.currentTime)
-    osc.stop(ctx.currentTime + duration)
-  } catch {
-    // Audio not available
+  if (ctx.state === 'suspended') {
+    ctx.resume().then(run).catch(() => {})
+  } else {
+    run()
   }
 }
 
-export async function playSelectSound() {
-  await tone(520, 0.07, 'sine', 0.14)
+export function playCorrectSound() {
+  withAudio(ctx => {
+    beep(ctx, 740, 0, 0.1, 0.28)
+    beep(ctx, 990, 0.1, 0.16, 0.28)
+  })
 }
 
-export async function playCorrectSound() {
-  await unlockAudio()
-  await tone(740, 0.09, 'sine', 0.24)
-  await new Promise(r => setTimeout(r, 90))
-  await tone(980, 0.14, 'sine', 0.24)
-}
-
-export async function playWrongSound() {
-  await unlockAudio()
-  await tone(180, 0.22, 'square', 0.16)
+export function playWrongSound() {
+  withAudio(ctx => {
+    beep(ctx, 180, 0, 0.24, 0.2, 'square')
+  })
 }
 
 let currentAudio = null
 
-/** Clave de archivo para una palabra georgiana. */
 export function wordAudioKey(text) {
   return [...text].map(c => c.codePointAt(0).toString(16)).join('-')
 }
 
-function playUrl(url, fallbackText) {
+/** Reproduce una palabra georgiana (MP3 pregenerado). */
+export function speakWord(text) {
   unlockAudio()
   if (currentAudio) {
     currentAudio.pause()
     currentAudio = null
   }
-  const audio = new Audio(url)
+  const audio = new Audio(`/audio/words/${wordAudioKey(text)}.mp3`)
   currentAudio = audio
-  audio.play().catch(() => {
-    if (!window.speechSynthesis) return
-    window.speechSynthesis.cancel()
-    const utter = new SpeechSynthesisUtterance(fallbackText)
-    utter.lang = 'ka-GE'
-    utter.rate = 0.85
-    window.speechSynthesis.speak(utter)
-  })
-}
-
-/** Reproduce una palabra georgiana (MP3 pregenerado). */
-export function speakWord(text) {
-  playUrl(`/audio/words/${wordAudioKey(text)}.mp3`, text)
+  const play = () => {
+    audio.play().catch(() => {
+      if (!window.speechSynthesis) return
+      window.speechSynthesis.cancel()
+      const utter = new SpeechSynthesisUtterance(text)
+      utter.lang = 'ka-GE'
+      utter.rate = 0.85
+      window.speechSynthesis.speak(utter)
+    })
+  }
+  // Small delay helps after UI swap on mobile
+  setTimeout(play, 40)
 }

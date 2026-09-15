@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { alphabet } from '../data/alphabet'
 import {
   playCorrectSound,
@@ -26,12 +26,22 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
   const [questions, setQuestions] = useState([])
   const [qIdx, setQIdx] = useState(0)
   const [opts, setOpts] = useState([])
-  const [picked, setPicked] = useState(null)
+  const [answer, setAnswer] = useState(null) // { picked, correct } | null
   const [score, setScore] = useState({ c: 0, w: 0 })
   const [done, setDone] = useState(false)
+  const playToken = useRef(0)
 
   const { progress, recordAlphabetSeen } = progressAPI
   const total = questions.length || SESSION_SIZE
+  const locked = !!answer
+
+  function playExample(word) {
+    const token = ++playToken.current
+    // Defer slightly so the new question UI is painted first
+    setTimeout(() => {
+      if (playToken.current === token) speakWord(word)
+    }, 120)
+  }
 
   function startPractice() {
     unlockAudio()
@@ -39,10 +49,27 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
     setQuestions(qs)
     setQIdx(0)
     setOpts(getOptions(qs[0], alphabet))
-    setPicked(null)
+    setAnswer(null)
     setScore({ c: 0, w: 0 })
     setDone(false)
     setTab('practice')
+    playExample(qs[0].example)
+  }
+
+  function goNext() {
+    document.activeElement?.blur?.()
+    const next = qIdx + 1
+    if (next >= questions.length) {
+      setDone(true)
+      setAnswer(null)
+      return
+    }
+    const nextOpts = getOptions(questions[next], alphabet)
+    // One update path: clear answer before/with the new question.
+    setAnswer(null)
+    setOpts(nextOpts)
+    setQIdx(next)
+    playExample(questions[next].example)
   }
 
   function handleSelect(letter) {
@@ -51,25 +78,21 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
   }
 
   function handlePick(opt) {
-    if (picked) return
-    const correct = opt.roman === questions[qIdx].roman
-    setPicked(opt.roman)
+    if (locked) return
+    unlockAudio()
+    const correctRoman = questions[qIdx].roman
+    const correct = opt.roman === correctRoman
+    setAnswer({ picked: opt.roman, correct: correctRoman })
     if (correct) playCorrectSound()
     else playWrongSound()
     setScore(s => ({ c: s.c + (correct ? 1 : 0), w: s.w + (correct ? 0 : 1) }))
-    setTimeout(() => {
-      document.activeElement?.blur?.()
-      const next = qIdx + 1
-      if (next >= questions.length) {
-        setDone(true)
-        return
-      }
-      // Clear feedback before showing the next question (avoids sticky red/green).
-      setPicked(null)
-      setOpts(getOptions(questions[next], alphabet))
-      setQIdx(next)
-    }, 900)
+    setTimeout(goNext, 900)
   }
+
+  // Safety: never keep answer highlight across question index changes
+  useEffect(() => {
+    setAnswer(null)
+  }, [qIdx])
 
   if (tab === 'practice' && done) {
     return (
@@ -113,7 +136,7 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
           <span style={{ fontSize: '0.8rem', color: 'var(--error)', fontWeight: 600, marginLeft: 8 }}>✗ {score.w}</span>
         </div>
 
-        <div className="practice-prompt">
+        <div className="practice-prompt" key={`prompt-${qIdx}`}>
           <div className="practice-letter">{q.letter}</div>
           <div className="practice-example">
             <div className="practice-example-geo">{q.example}</div>
@@ -122,26 +145,30 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
           <button
             type="button"
             className="sound-btn"
-            onClick={() => speakWord(q.example)}
+            onClick={() => {
+              unlockAudio()
+              speakWord(q.example)
+            }}
             aria-label="Listen to the example word"
           >
             ▶ Listen
           </button>
         </div>
 
-        <div className="options-stack">
+        <div className="options-stack" key={`opts-${qIdx}`}>
           {opts.map(opt => {
             let cls = 'option-row'
-            if (picked) {
-              if (opt.roman === questions[qIdx].roman) cls += ' correct'
-              else if (picked === opt.roman) cls += ' wrong'
+            if (answer) {
+              if (opt.roman === answer.correct) cls += ' correct'
+              else if (opt.roman === answer.picked) cls += ' wrong'
             }
             return (
               <button
-                key={`${qIdx}-${opt.roman}`}
+                key={opt.roman}
+                type="button"
                 className={cls}
                 onClick={() => handlePick(opt)}
-                disabled={!!picked}
+                disabled={locked}
               >
                 {opt.roman}
               </button>
@@ -200,7 +227,10 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
             type="button"
             className="sound-btn"
             style={{ margin: '12px auto 0', display: 'flex' }}
-            onClick={() => speakWord(selected.example)}
+            onClick={() => {
+              unlockAudio()
+              speakWord(selected.example)
+            }}
           >
             ▶ Listen
           </button>

@@ -25,11 +25,12 @@ export default function QuizLesson({ navigate, progressAPI, category }) {
   const [questions, setQuestions] = useState(() => pickQuestions(pool))
   const [idx, setIdx] = useState(0)
   const [opts, setOpts] = useState(() => getOptions(questions[0], pool))
-  const [picked, setPicked] = useState(null)
+  const [answer, setAnswer] = useState(null) // { pickedId, correctId } | null
   const [history, setHistory] = useState([])
   const [done, setDone] = useState(false)
 
   const { recordAnswer } = progressAPI
+  const locked = !!answer
 
   function startRound() {
     unlockAudio()
@@ -37,15 +38,17 @@ export default function QuizLesson({ navigate, progressAPI, category }) {
     setQuestions(qs)
     setIdx(0)
     setOpts(getOptions(qs[0], pool))
-    setPicked(null)
+    setAnswer(null)
     setHistory([])
     setDone(false)
   }
 
   function handlePick(opt) {
-    if (picked !== null) return
-    const correct = opt.id === questions[idx].id
-    setPicked(opt.id)
+    if (locked) return
+    unlockAudio()
+    const correctId = questions[idx].id
+    const correct = opt.id === correctId
+    setAnswer({ pickedId: opt.id, correctId })
     if (correct) playCorrectSound()
     else playWrongSound()
     recordAnswer(questions[idx].id, correct)
@@ -56,9 +59,10 @@ export default function QuizLesson({ navigate, progressAPI, category }) {
       const next = idx + 1
       if (next >= questions.length) {
         setDone(true)
+        setAnswer(null)
         return
       }
-      setPicked(null)
+      setAnswer(null)
       setOpts(getOptions(questions[next], pool))
       setIdx(next)
     }, 900)
@@ -112,19 +116,20 @@ export default function QuizLesson({ navigate, progressAPI, category }) {
         <div className="q-geo" style={{ fontFamily: 'inherit', fontSize: '2.25rem' }}>{q.english}</div>
       </div>
 
-      <div className="options-stack">
+      <div className="options-stack" key={`opts-${idx}`}>
         {opts.map(opt => {
           let cls = 'option-row'
-          if (picked !== null) {
-            if (opt.id === q.id) cls += ' correct'
-            else if (picked === opt.id) cls += ' wrong'
+          if (answer) {
+            if (opt.id === answer.correctId) cls += ' correct'
+            else if (opt.id === answer.pickedId) cls += ' wrong'
           }
           return (
             <button
-              key={`${idx}-${opt.id}`}
+              key={opt.id}
+              type="button"
               className={cls}
               onClick={() => handlePick(opt)}
-              disabled={picked !== null}
+              disabled={locked}
             >
               <span style={{ fontFamily: 'Sylfaen, BPG Arial, serif', fontSize: '1.25rem' }}>{opt.georgian}</span>
             </button>
