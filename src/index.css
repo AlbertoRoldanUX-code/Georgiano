@@ -468,7 +468,9 @@ body {
   cursor: pointer;
   transition: all 0.15s;
 }
-.sound-btn:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-light); }
+@media (hover: hover) {
+  .sound-btn:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-light); }
+}
 
 .options-stack {
   display: flex;
@@ -494,10 +496,14 @@ body {
 @media (hover: hover) {
   .option-row:hover:not(:disabled) { border-color: var(--primary); background: var(--primary-light); }
 }
-.option-row:focus-visible { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
+.option-row:focus,
+.option-row:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
 .option-row.correct { border-color: var(--success); background: var(--success-bg); color: var(--success); }
 .option-row.wrong   { border-color: var(--error);   background: var(--error-bg);   color: var(--error); }
-.option-row:disabled { cursor: default; }
+.option-row:disabled { cursor: default; opacity: 1; }
 
 /* ── Translation ── */
 .trans-card {

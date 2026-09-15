@@ -1,4 +1,15 @@
+/** Shared HTMLAudioElement — required for reliable iOS playback. */
+let wordPlayer = null
 let audioCtx = null
+
+function getWordPlayer() {
+  if (!wordPlayer) {
+    wordPlayer = new Audio()
+    wordPlayer.setAttribute('playsinline', 'true')
+    wordPlayer.preload = 'auto'
+  }
+  return wordPlayer
+}
 
 function getAudioContext() {
   const AC = window.AudioContext || window.webkitAudioContext
@@ -7,12 +18,41 @@ function getAudioContext() {
   return audioCtx
 }
 
-/** Must stay sync with the tap so iOS unlocks audio. */
+/** Call synchronously inside a tap/pointerdown handler. */
 export function unlockAudio() {
   const ctx = getAudioContext()
-  if (!ctx) return
-  if (ctx.state === 'suspended') {
+  if (ctx && ctx.state === 'suspended') {
     ctx.resume().catch(() => {})
+  }
+}
+
+export function wordAudioKey(text) {
+  return [...text].map(c => c.codePointAt(0).toString(16)).join('-')
+}
+
+/**
+ * Play a Georgian word immediately.
+ * Call this directly from onClick (no setTimeout wrappers).
+ */
+export function speakWord(text) {
+  unlockAudio()
+  const player = getWordPlayer()
+  const url = `/audio/words/${wordAudioKey(text)}.mp3`
+
+  player.pause()
+  player.src = url
+  player.currentTime = 0
+
+  const p = player.play()
+  if (p && typeof p.catch === 'function') {
+    p.catch(() => {
+      // Retry once after load
+      const retry = () => {
+        player.play().catch(() => {})
+      }
+      player.addEventListener('canplaythrough', retry, { once: true })
+      player.load()
+    })
   }
 }
 
@@ -30,61 +70,31 @@ function beep(ctx, freq, when, duration, volume, type = 'sine') {
   osc.stop(t0 + duration)
 }
 
-function withAudio(play) {
+export function playCorrectSound() {
   const ctx = getAudioContext()
   if (!ctx) return
   const run = () => {
     try {
-      play(ctx)
+      beep(ctx, 740, 0, 0.1, 0.28)
+      beep(ctx, 990, 0.1, 0.16, 0.28)
     } catch {
       // ignore
     }
   }
-  if (ctx.state === 'suspended') {
-    ctx.resume().then(run).catch(() => {})
-  } else {
-    run()
-  }
-}
-
-export function playCorrectSound() {
-  withAudio(ctx => {
-    beep(ctx, 740, 0, 0.1, 0.28)
-    beep(ctx, 990, 0.1, 0.16, 0.28)
-  })
+  if (ctx.state === 'suspended') ctx.resume().then(run).catch(() => {})
+  else run()
 }
 
 export function playWrongSound() {
-  withAudio(ctx => {
-    beep(ctx, 180, 0, 0.24, 0.2, 'square')
-  })
-}
-
-let currentAudio = null
-
-export function wordAudioKey(text) {
-  return [...text].map(c => c.codePointAt(0).toString(16)).join('-')
-}
-
-/** Reproduce una palabra georgiana (MP3 pregenerado). */
-export function speakWord(text) {
-  unlockAudio()
-  if (currentAudio) {
-    currentAudio.pause()
-    currentAudio = null
+  const ctx = getAudioContext()
+  if (!ctx) return
+  const run = () => {
+    try {
+      beep(ctx, 180, 0, 0.24, 0.2, 'square')
+    } catch {
+      // ignore
+    }
   }
-  const audio = new Audio(`/audio/words/${wordAudioKey(text)}.mp3`)
-  currentAudio = audio
-  const play = () => {
-    audio.play().catch(() => {
-      if (!window.speechSynthesis) return
-      window.speechSynthesis.cancel()
-      const utter = new SpeechSynthesisUtterance(text)
-      utter.lang = 'ka-GE'
-      utter.rate = 0.85
-      window.speechSynthesis.speak(utter)
-    })
-  }
-  // Small delay helps after UI swap on mobile
-  setTimeout(play, 40)
+  if (ctx.state === 'suspended') ctx.resume().then(run).catch(() => {})
+  else run()
 }

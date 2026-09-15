@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useReducer, useState } from 'react'
 import { alphabet } from '../data/alphabet'
 import {
   playCorrectSound,
@@ -7,7 +7,6 @@ import {
   unlockAudio,
 } from '../utils/audio'
 
-/** Duolingo-style short round (~2–5 min). */
 const SESSION_SIZE = 12
 
 function shuffle(arr) {
@@ -19,57 +18,86 @@ function getOptions(correct, all) {
   return shuffle([correct, ...wrong])
 }
 
+const initial = {
+  active: false,
+  done: false,
+  questions: [],
+  idx: 0,
+  opts: [],
+  questionId: 0,
+  feedback: null, // { questionId, picked, correct } | null
+  score: { c: 0, w: 0 },
+}
+
+function reducer(state, action) {
+  switch (action.type) {
+    case 'boot': {
+      const { questions } = action
+      return {
+        active: true,
+        done: false,
+        questions,
+        idx: 0,
+        opts: getOptions(questions[0], alphabet),
+        questionId: 1,
+        feedback: null,
+        score: { c: 0, w: 0 },
+      }
+    }
+    case 'answer': {
+      if (state.feedback || state.done || !state.active) return state
+      const q = state.questions[state.idx]
+      const correct = action.picked === q.roman
+      return {
+        ...state,
+        feedback: {
+          questionId: state.questionId,
+          picked: action.picked,
+          correct: q.roman,
+        },
+        score: {
+          c: state.score.c + (correct ? 1 : 0),
+          w: state.score.w + (correct ? 0 : 1),
+        },
+      }
+    }
+    case 'next': {
+      const next = state.idx + 1
+      if (next >= state.questions.length) {
+        return { ...state, done: true, feedback: null }
+      }
+      return {
+        ...state,
+        idx: next,
+        opts: getOptions(state.questions[next], alphabet),
+        questionId: state.questionId + 1,
+        feedback: null,
+      }
+    }
+    case 'exit':
+      return { ...initial }
+    default:
+      return state
+  }
+}
+
 export default function AlphabetLesson({ navigate, progressAPI }) {
   const [tab, setTab] = useState('browse')
   const [selected, setSelected] = useState(null)
-
-  const [questions, setQuestions] = useState([])
-  const [qIdx, setQIdx] = useState(0)
-  const [opts, setOpts] = useState([])
-  const [answer, setAnswer] = useState(null) // { picked, correct } | null
-  const [score, setScore] = useState({ c: 0, w: 0 })
-  const [done, setDone] = useState(false)
-  const playToken = useRef(0)
+  const [state, dispatch] = useReducer(reducer, initial)
 
   const { progress, recordAlphabetSeen } = progressAPI
-  const total = questions.length || SESSION_SIZE
-  const locked = !!answer
-
-  function playExample(word) {
-    const token = ++playToken.current
-    // Defer slightly so the new question UI is painted first
-    setTimeout(() => {
-      if (playToken.current === token) speakWord(word)
-    }, 120)
-  }
+  const total = state.questions.length || SESSION_SIZE
+  const feedbackLive =
+    state.feedback && state.feedback.questionId === state.questionId
 
   function startPractice() {
     unlockAudio()
-    const qs = shuffle(alphabet).slice(0, SESSION_SIZE)
-    setQuestions(qs)
-    setQIdx(0)
-    setOpts(getOptions(qs[0], alphabet))
-    setAnswer(null)
-    setScore({ c: 0, w: 0 })
-    setDone(false)
+    const questions = shuffle(alphabet).slice(0, SESSION_SIZE)
+    dispatch({ type: 'boot', questions })
     setTab('practice')
-    playExample(qs[0].example)
-  }
-
-  function goNext() {
-    document.activeElement?.blur?.()
-    const next = qIdx + 1
-    if (next >= questions.length) {
-      setDone(true)
-      setAnswer(null)
-      return
-    }
-    const nextOpts = getOptions(questions[next], alphabet)
-    // One update path: clear answer before/with the new question.
-    setAnswer(null)
-    setOpts(nextOpts)
-    setQIdx(next)
-    playExample(questions[next].example)
+    // Same tap → iOS allows play
+    speakWord(questions[0].example)
   }
 
   function handleSelect(letter) {
@@ -78,65 +106,83 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
   }
 
   function handlePick(opt) {
-    if (locked) return
+    if (feedbackLive || state.done) return
     unlockAudio()
-    const correctRoman = questions[qIdx].roman
-    const correct = opt.roman === correctRoman
-    setAnswer({ picked: opt.roman, correct: correctRoman })
+    const q = state.questions[state.idx]
+    const correct = opt.roman === q.roman
+    dispatch({ type: 'answer', picked: opt.roman })
     if (correct) playCorrectSound()
     else playWrongSound()
-    setScore(s => ({ c: s.c + (correct ? 1 : 0), w: s.w + (correct ? 0 : 1) }))
-    setTimeout(goNext, 900)
+
+    const idx = state.idx
+    const questions = state.questions
+
+    window.setTimeout(() => {
+      document.activeElement?.blur?.()
+      const next = idx + 1
+      dispatch({ type: 'next' })
+      if (next < questions.length) {
+        // Context already unlocked by the answer tap
+        speakWord(questions[next].example)
+      }
+    }, 900)
   }
 
-  // Safety: never keep answer highlight across question index changes
-  useEffect(() => {
-    setAnswer(null)
-  }, [qIdx])
-
-  if (tab === 'practice' && done) {
+  if (tab === 'practice' && state.done) {
     return (
       <div className="screen">
         <div className="result-screen">
-          <div className="result-emoji">{score.c >= total * 0.8 ? '🏆' : '📚'}</div>
+          <div className="result-emoji">{state.score.c >= total * 0.8 ? '🏆' : '📚'}</div>
           <h2 className="result-title">Complete!</h2>
-          <div className="result-score">{score.c}/{total}</div>
+          <div className="result-score">{state.score.c}/{total}</div>
           <div className="result-sub">
-            {score.c >= total * 0.9 ? 'Excellent!'
-              : score.c >= total * 0.7 ? 'Nice work. Keep practicing!'
+            {state.score.c >= total * 0.9 ? 'Excellent!'
+              : state.score.c >= total * 0.7 ? 'Nice work. Keep practicing!'
               : 'Keep reviewing the letters.'}
           </div>
           <div className="result-actions">
-            <button className="btn btn-primary" onClick={startPractice}>Another round</button>
-            <button className="btn btn-ghost" onClick={() => navigate('home')}>Home</button>
+            <button type="button" className="btn btn-primary" onClick={startPractice}>Another round</button>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={() => { dispatch({ type: 'exit' }); navigate('home') }}
+            >
+              Home
+            </button>
           </div>
         </div>
       </div>
     )
   }
 
-  if (tab === 'practice' && questions.length > 0) {
-    const q = questions[qIdx]
+  if (tab === 'practice' && state.active && state.questions.length > 0) {
+    const q = state.questions[state.idx]
     return (
       <div className="screen">
         <nav className="nav">
-          <button className="nav-back" onClick={() => setTab('browse')}>‹</button>
+          <button
+            type="button"
+            className="nav-back"
+            onClick={() => { dispatch({ type: 'exit' }); setTab('browse') }}
+          >
+            ‹
+          </button>
           <span className="nav-title">Practice</span>
         </nav>
 
         <div className="pbar">
-          <div className="pbar-fill" style={{ width: `${(qIdx / total) * 100}%` }} />
+          <div className="pbar-fill" style={{ width: `${(state.idx / total) * 100}%` }} />
         </div>
 
         <div className="quiz-score" style={{ marginBottom: 24 }}>
           <span style={{ fontSize: '0.8rem', color: 'var(--text3)', marginRight: 4 }}>
-            {qIdx + 1}/{total}
+            {state.idx + 1}/{total}
           </span>
-          <span style={{ fontSize: '0.8rem', color: 'var(--success)', fontWeight: 600 }}>✓ {score.c}</span>
-          <span style={{ fontSize: '0.8rem', color: 'var(--error)', fontWeight: 600, marginLeft: 8 }}>✗ {score.w}</span>
+          <span style={{ fontSize: '0.8rem', color: 'var(--success)', fontWeight: 600 }}>✓ {state.score.c}</span>
+          <span style={{ fontSize: '0.8rem', color: 'var(--error)', fontWeight: 600, marginLeft: 8 }}>✗ {state.score.w}</span>
         </div>
 
-        <div className="practice-prompt" key={`prompt-${qIdx}`}>
+        <div className="practice-prompt">
           <div className="practice-letter">{q.letter}</div>
           <div className="practice-example">
             <div className="practice-example-geo">{q.example}</div>
@@ -145,6 +191,7 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
           <button
             type="button"
             className="sound-btn"
+            onPointerDown={unlockAudio}
             onClick={() => {
               unlockAudio()
               speakWord(q.example)
@@ -155,20 +202,21 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
           </button>
         </div>
 
-        <div className="options-stack" key={`opts-${qIdx}`}>
-          {opts.map(opt => {
+        <div className="options-stack" key={state.questionId}>
+          {state.opts.map(opt => {
             let cls = 'option-row'
-            if (answer) {
-              if (opt.roman === answer.correct) cls += ' correct'
-              else if (opt.roman === answer.picked) cls += ' wrong'
+            if (feedbackLive) {
+              if (opt.roman === state.feedback.correct) cls += ' correct'
+              else if (opt.roman === state.feedback.picked) cls += ' wrong'
             }
             return (
               <button
-                key={opt.roman}
+                key={`${state.questionId}-${opt.roman}`}
                 type="button"
                 className={cls}
+                onPointerDown={unlockAudio}
                 onClick={() => handlePick(opt)}
-                disabled={locked}
+                disabled={feedbackLive}
               >
                 {opt.roman}
               </button>
@@ -182,18 +230,24 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
   return (
     <div className="screen">
       <nav className="nav">
-        <button className="nav-back" onClick={() => navigate('home')}>‹</button>
+        <button type="button" className="nav-back" onClick={() => navigate('home')}>‹</button>
         <span className="nav-title">Learn the alphabet</span>
       </nav>
 
       <div className="alpha-tabs">
         <button
+          type="button"
           className={`alpha-tab ${tab === 'browse' ? 'active' : ''}`}
           onClick={() => { setTab('browse'); setSelected(null) }}
         >
           Browse
         </button>
-        <button className={`alpha-tab ${tab === 'practice' ? 'active' : ''}`} onClick={startPractice}>
+        <button
+          type="button"
+          className={`alpha-tab ${tab === 'practice' ? 'active' : ''}`}
+          onPointerDown={unlockAudio}
+          onClick={startPractice}
+        >
           Practice
         </button>
       </div>
@@ -202,6 +256,7 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
         {alphabet.map(l => (
           <button
             key={l.letter}
+            type="button"
             className={`letter-tile ${progress.alphabetSeen.includes(l.letter) ? 'seen' : ''} ${selected?.letter === l.letter ? 'selected' : ''}`}
             onClick={() => handleSelect(l)}
           >
@@ -227,6 +282,7 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
             type="button"
             className="sound-btn"
             style={{ margin: '12px auto 0', display: 'flex' }}
+            onPointerDown={unlockAudio}
             onClick={() => {
               unlockAudio()
               speakWord(selected.example)
