@@ -211,6 +211,38 @@ body {
 .module-info { flex: 1; }
 .module-title { font-size: 1.0625rem; font-weight: 600; color: var(--text); }
 .module-desc { font-size: 0.8125rem; color: var(--text2); margin-top: 3px; }
+.home-sub {
+  font-size: 0.875rem;
+  color: var(--text2);
+  margin-top: 6px;
+}
+.path-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text3);
+  margin-bottom: 10px;
+}
+.module-step {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--primary-light);
+  color: var(--primary);
+  font-weight: 700;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.module-skill {
+  font-size: 0.75rem;
+  color: var(--primary);
+  font-weight: 600;
+  margin-top: 4px;
+}
 .module-progress {
   font-size: 0.8125rem;
   font-weight: 600;
@@ -452,6 +484,16 @@ body {
   font-size: 0.9375rem;
   color: var(--text2);
   margin-top: 4px;
+}
+.practice-example-hidden {
+  opacity: 0.5;
+  filter: blur(6px);
+  user-select: none;
+  pointer-events: none;
+}
+.sound-btn-lg {
+  padding: 16px 28px;
+  font-size: 1.05rem;
 }
 .sound-btn {
   display: inline-flex;

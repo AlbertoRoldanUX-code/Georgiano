@@ -92,7 +92,6 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
     const questions = shuffle(alphabet).slice(0, SESSION_SIZE)
     dispatch({ type: 'boot', questions })
     setTab('practice')
-    speakWord(questions[0].example)
   }
 
   function handleSelect(letter) {
@@ -170,18 +169,25 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
 
         <div className="practice-prompt" key={`q-${state.step}`}>
           <div className="practice-letter">{q.letter}</div>
-          <div className="practice-example">
-            <div className="practice-example-geo">{q.example}</div>
-            <div className="practice-example-en">{q.exMeaning}</div>
-          </div>
           <button
             type="button"
             className="sound-btn"
             onClick={() => speakWord(q.example)}
-            aria-label="Listen to the example word"
+            aria-label="Listen to an example word"
           >
             ▶ Listen
           </button>
+          {showingFeedback ? (
+            <div className="practice-example">
+              <div className="practice-example-geo">{q.example}</div>
+              <div className="practice-example-en">{q.exMeaning}</div>
+            </div>
+          ) : (
+            <div className="practice-example practice-example-hidden" aria-hidden="true">
+              <div className="practice-example-geo">••••</div>
+              <div className="practice-example-en">example hidden</div>
+            </div>
+          )}
         </div>
 
         <div className="options-stack" key={`opts-${state.step}`}>

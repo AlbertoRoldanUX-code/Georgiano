@@ -104,7 +104,7 @@ export default function TranslationLesson({ navigate, progressAPI, category }) {
     <div className="screen">
       <nav className="nav">
         <button className="nav-back" onClick={() => navigate('home')}>‹</button>
-        <span className="nav-title">Translation · {catTitle}</span>
+        <span className="nav-title">Write · {catTitle}</span>
       </nav>
 
       <div className="pbar">

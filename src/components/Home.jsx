@@ -1,21 +1,30 @@
 import { useState } from 'react'
-import { vocabulary, allWords } from '../data/vocabulary'
+import { vocabulary, allWords, learningPath } from '../data/vocabulary'
 import { alphabet } from '../data/alphabet'
 
 export default function Home({ navigate, progress }) {
-  const [showVocabMenu, setShowVocabMenu] = useState(false)
-  const [showTransMenu, setShowTransMenu] = useState(false)
+  const [openSkill, setOpenSkill] = useState(null)
 
   const pct = n => Math.round(n * 100) || 0
   const accuracy = progress.totalAttempts > 0
     ? pct(progress.totalCorrect / progress.totalAttempts)
     : 0
 
+  function toggleSkill(id) {
+    setOpenSkill(s => (s === id ? null : id))
+  }
+
+  function goSkill(view, category = null) {
+    setOpenSkill(null)
+    navigate(view, { category })
+  }
+
   return (
     <div className="screen">
       <div className="home-header">
         <div className="home-geo">გამარჯობა!</div>
         <h1 className="home-title">Learn Georgian</h1>
+        <p className="home-sub">Follow the path: sounds → words → produce</p>
       </div>
 
       <div className="stats-row">
@@ -33,87 +42,68 @@ export default function Home({ navigate, progress }) {
         </div>
       </div>
 
+      <div className="path-label">Your learning path</div>
       <div className="module-list">
-        <button className="module-card" onClick={() => navigate('alphabet')}>
-          <div className="module-icon">
-            <span style={{ fontFamily: 'Sylfaen, serif', fontSize: '1.6rem' }}>ა</span>
-          </div>
-          <div className="module-info">
-            <div className="module-title">Learn the alphabet</div>
-            <div className="module-desc">Browse and practice the 33 Mkhedruli letters</div>
-            {progress.alphabetSeen.length > 0 && (
-              <div className="module-progress">
-                {progress.alphabetSeen.length}/{alphabet.length} seen
-              </div>
-            )}
-          </div>
-          <div className="module-arrow">›</div>
-        </button>
+        {learningPath.map(item => {
+          const needsCategory = item.view !== 'alphabet'
+          const isOpen = openSkill === item.id
 
-        <button className="module-card" onClick={() => setShowVocabMenu(v => !v)}>
-          <div className="module-icon">🔤</div>
-          <div className="module-info">
-            <div className="module-title">Vocabulary</div>
-            <div className="module-desc">English → Georgian multiple choice</div>
-            {progress.learnedWords.length > 0 && (
-              <div className="module-progress">
-                {progress.learnedWords.length}/{allWords.length} learned
-              </div>
-            )}
-          </div>
-          <div className="module-arrow" style={{ transform: showVocabMenu ? 'rotate(90deg)' : 'none', transition: '0.2s' }}>›</div>
-        </button>
-
-        {showVocabMenu && (
-          <div className="category-grid">
-            <button className="cat-btn" onClick={() => { setShowVocabMenu(false); navigate('quiz', { category: null }) }}>
-              <div className="cat-btn-icon">🌍</div>
-              <div className="cat-btn-title">All</div>
-              <div className="cat-btn-count">{allWords.length} words</div>
-            </button>
-            {Object.entries(vocabulary).map(([key, cat]) => (
+          return (
+            <div key={item.id}>
               <button
-                key={key}
-                className="cat-btn"
-                onClick={() => { setShowVocabMenu(false); navigate('quiz', { category: key }) }}
+                type="button"
+                className="module-card"
+                onClick={() => {
+                  if (item.view === 'alphabet') navigate('alphabet')
+                  else toggleSkill(item.id)
+                }}
               >
-                <div className="cat-btn-icon">{cat.icon}</div>
-                <div className="cat-btn-title">{cat.title}</div>
-                <div className="cat-btn-count">{cat.words.length} words</div>
+                <div className="module-step">{item.step}</div>
+                <div className="module-info">
+                  <div className="module-title">{item.title}</div>
+                  <div className="module-desc">{item.desc}</div>
+                  <div className="module-skill">{item.skill}</div>
+                  {item.view === 'alphabet' && progress.alphabetSeen.length > 0 && (
+                    <div className="module-progress">
+                      {progress.alphabetSeen.length}/{alphabet.length} letters seen
+                    </div>
+                  )}
+                </div>
+                <div
+                  className="module-arrow"
+                  style={{
+                    transform: needsCategory && isOpen ? 'rotate(90deg)' : 'none',
+                    transition: '0.2s',
+                  }}
+                >
+                  ›
+                </div>
               </button>
-            ))}
-          </div>
-        )}
 
-        <button className="module-card" onClick={() => setShowTransMenu(v => !v)}>
-          <div className="module-icon">✍️</div>
-          <div className="module-info">
-            <div className="module-title">Translation</div>
-            <div className="module-desc">Type the Georgian from English</div>
-          </div>
-          <div className="module-arrow" style={{ transform: showTransMenu ? 'rotate(90deg)' : 'none', transition: '0.2s' }}>›</div>
-        </button>
-
-        {showTransMenu && (
-          <div className="category-grid">
-            <button className="cat-btn" onClick={() => { setShowTransMenu(false); navigate('translation', { category: null }) }}>
-              <div className="cat-btn-icon">🌍</div>
-              <div className="cat-btn-title">All</div>
-              <div className="cat-btn-count">{allWords.length} words</div>
-            </button>
-            {Object.entries(vocabulary).map(([key, cat]) => (
-              <button
-                key={key}
-                className="cat-btn"
-                onClick={() => { setShowTransMenu(false); navigate('translation', { category: key }) }}
-              >
-                <div className="cat-btn-icon">{cat.icon}</div>
-                <div className="cat-btn-title">{cat.title}</div>
-                <div className="cat-btn-count">{cat.words.length} words</div>
-              </button>
-            ))}
-          </div>
-        )}
+              {needsCategory && isOpen && (
+                <div className="category-grid">
+                  <button type="button" className="cat-btn" onClick={() => goSkill(item.view, null)}>
+                    <div className="cat-btn-icon">🌍</div>
+                    <div className="cat-btn-title">All</div>
+                    <div className="cat-btn-count">{allWords.length} words</div>
+                  </button>
+                  {Object.entries(vocabulary).map(([key, cat]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      className="cat-btn"
+                      onClick={() => goSkill(item.view, key)}
+                    >
+                      <div className="cat-btn-icon">{cat.icon}</div>
+                      <div className="cat-btn-title">{cat.title}</div>
+                      <div className="cat-btn-count">{cat.words.length} words</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )
+        })}
       </div>
     </div>
   )
