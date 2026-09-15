@@ -92,19 +92,25 @@ export default function SkillLesson({ navigate, progressAPI, category, mode }) {
   const pool = category ? vocabulary[category].words : allWords
   const catTitle = category ? vocabulary[category].title : 'All'
   const [state, dispatch] = useReducer(reducer, null, () => createRound(pool, mode))
-  const { recordAnswer } = progressAPI
+  const { recordAnswer, recordSkillRound } = progressAPI
   const showingFeedback = state.status === 'feedback'
 
   function handlePick(opt) {
     if (state.status !== 'prompt' || state.done) return
     const q = state.questions[state.idx]
     const correct = opt.id === q.id
+    const nextHistory = [...state.history, correct ? 'c' : 'w']
+    const willFinish = state.idx + 1 >= state.questions.length
     dispatch({ type: 'answer', pickedId: opt.id })
     if (correct) playCorrectSound()
     else playWrongSound()
-    recordAnswer(q.id, correct)
+    recordAnswer(q.id, correct, mode)
     window.setTimeout(() => {
       document.activeElement?.blur?.()
+      if (willFinish) {
+        const score = nextHistory.filter(h => h === 'c').length
+        recordSkillRound(mode, Math.round((score / state.questions.length) * 100))
+      }
       dispatch({ type: 'next', pool })
     }, 900)
   }

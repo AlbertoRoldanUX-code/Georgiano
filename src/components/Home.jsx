@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { vocabulary, allWords, learningPath } from '../data/vocabulary'
-import { alphabet } from '../data/alphabet'
+import { isPathUnlocked, unlockHint, pathProgressLabel } from '../utils/pathUnlock'
 
 export default function Home({ navigate, progress }) {
   const [openSkill, setOpenSkill] = useState(null)
@@ -46,27 +46,35 @@ export default function Home({ navigate, progress }) {
       <div className="module-list">
         {learningPath.map(item => {
           const needsCategory = item.view !== 'alphabet'
-          const isOpen = openSkill === item.id
+          const unlocked = isPathUnlocked(item.id, progress)
+          const isOpen = unlocked && openSkill === item.id
+          const hint = unlockHint(item.id, progress)
+          const label = pathProgressLabel(item.id, progress)
 
           return (
             <div key={item.id}>
               <button
                 type="button"
-                className="module-card"
+                className={`module-card${unlocked ? '' : ' is-locked'}`}
+                disabled={!unlocked}
                 onClick={() => {
+                  if (!unlocked) return
                   if (item.view === 'alphabet') navigate('alphabet')
                   else toggleSkill(item.id)
                 }}
               >
-                <div className="module-step">{item.step}</div>
+                <div className={`module-step${unlocked ? '' : ' is-locked'}`}>
+                  {unlocked ? item.step : '🔒'}
+                </div>
                 <div className="module-info">
                   <div className="module-title">{item.title}</div>
                   <div className="module-desc">{item.desc}</div>
                   <div className="module-skill">{item.skill}</div>
-                  {item.view === 'alphabet' && progress.alphabetSeen.length > 0 && (
-                    <div className="module-progress">
-                      {progress.alphabetSeen.length}/{alphabet.length} letters seen
-                    </div>
+                  {unlocked && label && (
+                    <div className="module-progress">{label}</div>
+                  )}
+                  {!unlocked && hint && (
+                    <div className="module-lock-hint">{hint}</div>
                   )}
                 </div>
                 <div
@@ -76,7 +84,7 @@ export default function Home({ navigate, progress }) {
                     transition: '0.2s',
                   }}
                 >
-                  ›
+                  {unlocked ? '›' : ''}
                 </div>
               </button>
 

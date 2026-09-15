@@ -39,7 +39,7 @@ export default function TranslationLesson({ navigate, progressAPI, category }) {
   const [done, setDone] = useState(false)
   const timerRef = useRef(null)
 
-  const { recordAnswer } = progressAPI
+  const { recordAnswer, recordSkillRound } = progressAPI
   const locked = status !== null
 
   useEffect(() => {
@@ -52,11 +52,17 @@ export default function TranslationLesson({ navigate, progressAPI, category }) {
 
   function finishAnswer(correct) {
     setStatus(correct ? 'correct' : 'wrong')
-    recordAnswer(questions[idx].id, correct)
-    setHistory(h => [...h, correct ? 'c' : 'w'])
+    recordAnswer(questions[idx].id, correct, 'write')
+    const nextHistory = [...history, correct ? 'c' : 'w']
+    setHistory(nextHistory)
     setTimeout(() => {
-      if (idx + 1 >= questions.length) setDone(true)
-      else setIdx(i => i + 1)
+      if (idx + 1 >= questions.length) {
+        const sc = nextHistory.filter(h => h === 'c').length
+        recordSkillRound('write', Math.round((sc / questions.length) * 100))
+        setDone(true)
+      } else {
+        setIdx(i => i + 1)
+      }
     }, 1200)
   }
 

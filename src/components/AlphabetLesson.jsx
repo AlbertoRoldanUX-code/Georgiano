@@ -90,7 +90,7 @@ function PracticeExampleReveal({ example, exMeaning, forceOpen }) {
         className="sound-btn"
         onClick={() => setOpen(true)}
       >
-        Example
+        See example
       </button>
     )
   }
@@ -118,7 +118,7 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
   const [selected, setSelected] = useState(null)
   const [state, dispatch] = useReducer(reducer, initial)
 
-  const { progress, recordAlphabetSeen } = progressAPI
+  const { progress, recordAlphabetSeen, recordAlphabetQuiz } = progressAPI
   const total = state.questions.length || SESSION_SIZE
   const showingFeedback = state.status === 'feedback'
 
@@ -137,12 +137,15 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
     if (state.status !== 'prompt' || state.done) return
     const q = state.questions[state.idx]
     const correct = opt.roman === q.roman
+    const finalCorrect = state.score.c + (correct ? 1 : 0)
+    const willFinish = state.idx + 1 >= total
     dispatch({ type: 'answer', picked: opt.roman })
     if (correct) playCorrectSound()
     else playWrongSound()
 
     window.setTimeout(() => {
       document.activeElement?.blur?.()
+      if (willFinish) recordAlphabetQuiz(finalCorrect)
       dispatch({ type: 'next' })
     }, 900)
   }

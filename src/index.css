@@ -196,6 +196,21 @@ body {
 }
 .module-card:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
 .module-card:active { transform: scale(0.99); }
+.module-card.is-locked {
+  opacity: 0.62;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+.module-card.is-locked:hover,
+.module-card.is-locked:active {
+  transform: none;
+  box-shadow: none;
+}
+.module-card.is-locked .module-title,
+.module-card.is-locked .module-desc,
+.module-card.is-locked .module-skill {
+  color: var(--text3);
+}
 
 .module-icon {
   font-size: 2rem;
@@ -237,6 +252,11 @@ body {
   justify-content: center;
   flex-shrink: 0;
 }
+.module-step.is-locked {
+  background: var(--border);
+  color: var(--text3);
+  font-size: 0.95rem;
+}
 .module-skill {
   font-size: 0.75rem;
   color: var(--primary);
@@ -248,6 +268,13 @@ body {
   font-weight: 600;
   color: var(--primary);
   margin-top: 6px;
+}
+.module-lock-hint {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text3);
+  margin-top: 6px;
+  line-height: 1.35;
 }
 .module-arrow {
   color: var(--text3);
