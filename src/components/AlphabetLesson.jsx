@@ -79,6 +79,40 @@ function reducer(state, action) {
   }
 }
 
+function PracticeExampleReveal({ example, exMeaning, forceOpen }) {
+  const [open, setOpen] = useState(false)
+  const shown = open || forceOpen
+
+  if (!shown) {
+    return (
+      <button
+        type="button"
+        className="sound-btn"
+        onClick={() => setOpen(true)}
+      >
+        Example
+      </button>
+    )
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        className="sound-btn"
+        onClick={() => speakWord(example)}
+        aria-label="Listen to an example word"
+      >
+        ▶ Listen
+      </button>
+      <div className="practice-example">
+        <div className="practice-example-geo">{example}</div>
+        <div className="practice-example-en">{exMeaning}</div>
+      </div>
+    </>
+  )
+}
+
 export default function AlphabetLesson({ navigate, progressAPI }) {
   const [tab, setTab] = useState('browse')
   const [selected, setSelected] = useState(null)
@@ -169,25 +203,11 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
 
         <div className="practice-prompt" key={`q-${state.step}`}>
           <div className="practice-letter">{q.letter}</div>
-          <button
-            type="button"
-            className="sound-btn"
-            onClick={() => speakWord(q.example)}
-            aria-label="Listen to an example word"
-          >
-            ▶ Listen
-          </button>
-          {showingFeedback ? (
-            <div className="practice-example">
-              <div className="practice-example-geo">{q.example}</div>
-              <div className="practice-example-en">{q.exMeaning}</div>
-            </div>
-          ) : (
-            <div className="practice-example practice-example-hidden" aria-hidden="true">
-              <div className="practice-example-geo">••••</div>
-              <div className="practice-example-en">example hidden</div>
-            </div>
-          )}
+          <PracticeExampleReveal
+            example={q.example}
+            exMeaning={q.exMeaning}
+            forceOpen={showingFeedback}
+          />
         </div>
 
         <div className="options-stack" key={`opts-${state.step}`}>
