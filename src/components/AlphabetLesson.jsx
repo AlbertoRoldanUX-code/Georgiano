@@ -7,7 +7,7 @@ import {
   speakWord,
 } from '../utils/audio'
 
-/** Duolingo: ~12–15 ejercicios / lección (~2–5 min). */
+/** Duolingo-style short round (~2–5 min). */
 const SESSION_SIZE = 12
 
 function shuffle(arr) {
@@ -77,16 +77,16 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
       <div className="screen">
         <div className="result-screen">
           <div className="result-emoji">{score.c >= total * 0.8 ? '🏆' : '📚'}</div>
-          <h2 className="result-title">¡Completado!</h2>
+          <h2 className="result-title">Complete!</h2>
           <div className="result-score">{score.c}/{total}</div>
           <div className="result-sub">
-            {score.c >= total * 0.9 ? '¡Excelente!'
-              : score.c >= total * 0.7 ? 'Muy bien. ¡Sigue practicando!'
-              : 'Continúa repasando las letras.'}
+            {score.c >= total * 0.9 ? 'Excellent!'
+              : score.c >= total * 0.7 ? 'Nice work. Keep practicing!'
+              : 'Keep reviewing the letters.'}
           </div>
           <div className="result-actions">
-            <button className="btn btn-primary" onClick={startPractice}>Otra ronda</button>
-            <button className="btn btn-ghost" onClick={() => navigate('home')}>Inicio</button>
+            <button className="btn btn-primary" onClick={startPractice}>Another round</button>
+            <button className="btn btn-ghost" onClick={() => navigate('home')}>Home</button>
           </div>
         </div>
       </div>
@@ -99,7 +99,7 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
       <div className="screen">
         <nav className="nav">
           <button className="nav-back" onClick={() => setTab('browse')}>‹</button>
-          <span className="nav-title">Practicar</span>
+          <span className="nav-title">Practice</span>
         </nav>
 
         <div className="pbar">
@@ -157,7 +157,7 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
     <div className="screen">
       <nav className="nav">
         <button className="nav-back" onClick={() => navigate('home')}>‹</button>
-        <span className="nav-title">Aprender las letras</span>
+        <span className="nav-title">Learn the alphabet</span>
       </nav>
 
       <div className="alpha-tabs">
@@ -165,10 +165,10 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
           className={`alpha-tab ${tab === 'browse' ? 'active' : ''}`}
           onClick={() => { setTab('browse'); setSelected(null) }}
         >
-          Explorar
+          Browse
         </button>
         <button className={`alpha-tab ${tab === 'practice' ? 'active' : ''}`} onClick={startPractice}>
-          Practicar
+          Practice
         </button>
       </div>
 
@@ -210,7 +210,7 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
 
       {!selected && (
         <p style={{ textAlign: 'center', color: 'var(--text3)', fontSize: '0.875rem', marginTop: 8 }}>
-          Toca una letra para ver los detalles
+          Tap a letter to see details
         </p>
       )}
     </div>

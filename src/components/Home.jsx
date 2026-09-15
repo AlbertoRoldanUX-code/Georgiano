@@ -15,43 +15,41 @@ export default function Home({ navigate, progress }) {
     <div className="screen">
       <div className="home-header">
         <div className="home-geo">გამარჯობა!</div>
-        <h1 className="home-title">Aprende Georgiano</h1>
+        <h1 className="home-title">Learn Georgian</h1>
       </div>
 
       <div className="stats-row">
         <div className="stat-card">
           <div className="stat-num">🔥 {progress.streak}</div>
-          <div className="stat-label">Racha</div>
+          <div className="stat-label">Streak</div>
         </div>
         <div className="stat-card">
           <div className="stat-num">{progress.learnedWords.length}</div>
-          <div className="stat-label">Palabras</div>
+          <div className="stat-label">Words</div>
         </div>
         <div className="stat-card">
           <div className="stat-num">{accuracy}%</div>
-          <div className="stat-label">Precisión</div>
+          <div className="stat-label">Accuracy</div>
         </div>
       </div>
 
       <div className="module-list">
-        {/* Aprender las letras */}
         <button className="module-card" onClick={() => navigate('alphabet')}>
           <div className="module-icon">
             <span style={{ fontFamily: 'Sylfaen, serif', fontSize: '1.6rem' }}>ა</span>
           </div>
           <div className="module-info">
-            <div className="module-title">Aprender las letras</div>
-            <div className="module-desc">Explora y practica las 33 letras mkhedruli</div>
+            <div className="module-title">Learn the alphabet</div>
+            <div className="module-desc">Browse and practice the 33 Mkhedruli letters</div>
             {progress.alphabetSeen.length > 0 && (
               <div className="module-progress">
-                {progress.alphabetSeen.length}/{alphabet.length} vistas
+                {progress.alphabetSeen.length}/{alphabet.length} seen
               </div>
             )}
           </div>
           <div className="module-arrow">›</div>
         </button>
 
-        {/* Vocabulario */}
         <button className="module-card" onClick={() => setShowVocabMenu(v => !v)}>
           <div className="module-icon">🔤</div>
           <div className="module-info">
@@ -59,7 +57,7 @@ export default function Home({ navigate, progress }) {
             <div className="module-desc">English → Georgian multiple choice</div>
             {progress.learnedWords.length > 0 && (
               <div className="module-progress">
-                {progress.learnedWords.length}/{allWords.length} aprendidas
+                {progress.learnedWords.length}/{allWords.length} learned
               </div>
             )}
           </div>
@@ -71,7 +69,7 @@ export default function Home({ navigate, progress }) {
             <button className="cat-btn" onClick={() => { setShowVocabMenu(false); navigate('quiz', { category: null }) }}>
               <div className="cat-btn-icon">🌍</div>
               <div className="cat-btn-title">All</div>
-              <div className="cat-btn-count">{allWords.length} palabras</div>
+              <div className="cat-btn-count">{allWords.length} words</div>
             </button>
             {Object.entries(vocabulary).map(([key, cat]) => (
               <button
@@ -81,13 +79,12 @@ export default function Home({ navigate, progress }) {
               >
                 <div className="cat-btn-icon">{cat.icon}</div>
                 <div className="cat-btn-title">{cat.title}</div>
-                <div className="cat-btn-count">{cat.words.length} palabras</div>
+                <div className="cat-btn-count">{cat.words.length} words</div>
               </button>
             ))}
           </div>
         )}
 
-        {/* Traducción */}
         <button className="module-card" onClick={() => setShowTransMenu(v => !v)}>
           <div className="module-icon">✍️</div>
           <div className="module-info">
@@ -102,7 +99,7 @@ export default function Home({ navigate, progress }) {
             <button className="cat-btn" onClick={() => { setShowTransMenu(false); navigate('translation', { category: null }) }}>
               <div className="cat-btn-icon">🌍</div>
               <div className="cat-btn-title">All</div>
-              <div className="cat-btn-count">{allWords.length} palabras</div>
+              <div className="cat-btn-count">{allWords.length} words</div>
             </button>
             {Object.entries(vocabulary).map(([key, cat]) => (
               <button
@@ -112,7 +109,7 @@ export default function Home({ navigate, progress }) {
               >
                 <div className="cat-btn-icon">{cat.icon}</div>
                 <div className="cat-btn-title">{cat.title}</div>
-                <div className="cat-btn-count">{cat.words.length} palabras</div>
+                <div className="cat-btn-count">{cat.words.length} words</div>
               </button>
             ))}
           </div>
