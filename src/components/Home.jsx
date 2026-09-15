@@ -52,11 +52,11 @@ export default function Home({ navigate, progress }) {
           const label = pathProgressLabel(item.id, progress)
 
           return (
-            <div key={item.id}>
+            <div key={item.id} className={`module-wrap${unlocked ? '' : ' is-locked'}`}>
               <button
                 type="button"
                 className={`module-card${unlocked ? '' : ' is-locked'}`}
-                disabled={!unlocked}
+                aria-disabled={!unlocked}
                 onClick={() => {
                   if (!unlocked) return
                   if (item.view === 'alphabet') navigate('alphabet')
@@ -73,9 +73,6 @@ export default function Home({ navigate, progress }) {
                   {unlocked && label && (
                     <div className="module-progress">{label}</div>
                   )}
-                  {!unlocked && hint && (
-                    <div className="module-lock-hint">{hint}</div>
-                  )}
                 </div>
                 <div
                   className="module-arrow"
@@ -87,6 +84,17 @@ export default function Home({ navigate, progress }) {
                   {unlocked ? '›' : ''}
                 </div>
               </button>
+
+              {!unlocked && hint && (
+                <div className="module-tooltip" role="tooltip">
+                  <div className="module-tooltip-why">{hint.why}</div>
+                  <ul className="module-tooltip-list">
+                    {hint.missing.map(line => (
+                      <li key={line}>{line}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               {needsCategory && isOpen && (
                 <div className="category-grid">

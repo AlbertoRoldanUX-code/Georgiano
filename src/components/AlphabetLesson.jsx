@@ -79,11 +79,10 @@ function reducer(state, action) {
   }
 }
 
-function PracticeExampleReveal({ example, exMeaning, forceOpen }) {
+function PracticeExampleReveal({ example, exMeaning }) {
   const [open, setOpen] = useState(false)
-  const shown = open || forceOpen
 
-  if (!shown) {
+  if (!open) {
     return (
       <button
         type="button"
@@ -209,7 +208,6 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
           <PracticeExampleReveal
             example={q.example}
             exMeaning={q.exMeaning}
-            forceOpen={showingFeedback}
           />
         </div>
 

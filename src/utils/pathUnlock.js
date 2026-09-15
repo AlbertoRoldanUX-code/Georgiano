@@ -70,14 +70,28 @@ export function unlockHint(id, progress) {
   if (prev === 'alphabet') {
     const seen = progress.alphabetSeen?.length || 0
     const best = progress.alphabetBestQuiz || 0
-    const parts = []
-    if (seen < ALPHA_MIN_SEEN) parts.push(`see ${ALPHA_MIN_SEEN}/${alphabet.length} letters (now ${seen})`)
-    if (best < ALPHA_MIN_QUIZ) parts.push(`quiz ≥${ALPHA_MIN_QUIZ}/12 (best ${best})`)
-    return `Finish ${prevTitle}: ${parts.join(' · ')}`
+    const missing = []
+    if (seen < ALPHA_MIN_SEEN) {
+      missing.push(`See ${ALPHA_MIN_SEEN} letters (you have ${seen}/${alphabet.length})`)
+    }
+    if (best < ALPHA_MIN_QUIZ) {
+      missing.push(`Score ≥${ALPHA_MIN_QUIZ}/12 in Alphabet quiz (best ${best}/12)`)
+    }
+    return {
+      why: `Complete ${prevTitle} first`,
+      missing,
+    }
   }
 
   const s = skillStats(progress, prev)
-  return `Finish ${prevTitle}: score ≥${SKILL_MIN_BEST_PCT}% in a round (best ${s.bestPct || 0}%)`
+  const acc = s.attempts > 0 ? Math.round((s.correct / s.attempts) * 100) : 0
+  return {
+    why: `Complete ${prevTitle} first`,
+    missing: [
+      `Get ≥${SKILL_MIN_BEST_PCT}% in one ${prevTitle} round (best ${s.bestPct || 0}%)`,
+      `Or ${SKILL_MIN_CORRECT}+ correct at ≥${Math.round(SKILL_MIN_ACCURACY * 100)}% accuracy (now ${s.correct}/${s.attempts}, ${acc}%)`,
+    ],
+  }
 }
 
 export function pathProgressLabel(id, progress) {

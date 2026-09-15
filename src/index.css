@@ -179,6 +179,10 @@ body {
   gap: 12px;
 }
 
+.module-wrap {
+  position: relative;
+}
+
 .module-card {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -210,6 +214,53 @@ body {
 .module-card.is-locked .module-desc,
 .module-card.is-locked .module-skill {
   color: var(--text3);
+}
+
+.module-tooltip {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  top: calc(100% + 8px);
+  z-index: 20;
+  padding: 12px 14px;
+  border-radius: var(--r);
+  background: var(--text);
+  color: #fff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(-4px);
+  transition: opacity 0.15s, transform 0.15s, visibility 0.15s;
+}
+.module-wrap.is-locked:hover .module-tooltip,
+.module-wrap.is-locked:focus-within .module-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+.module-tooltip-why {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.module-tooltip-list {
+  margin: 0;
+  padding-left: 1.1em;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.88);
+}
+.module-tooltip-list li + li {
+  margin-top: 4px;
+}
+
+@media (hover: none) {
+  .module-wrap.is-locked:focus-within .module-tooltip {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+  }
 }
 
 .module-icon {
@@ -268,13 +319,6 @@ body {
   font-weight: 600;
   color: var(--primary);
   margin-top: 6px;
-}
-.module-lock-hint {
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--text3);
-  margin-top: 6px;
-  line-height: 1.35;
 }
 .module-arrow {
   color: var(--text3);
