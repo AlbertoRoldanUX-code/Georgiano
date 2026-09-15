@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { vocabulary, allWords } from '../data/vocabulary'
 import { playSelectSound, playCorrectSound, playWrongSound } from '../utils/audio'
 
@@ -31,13 +31,6 @@ export default function QuizLesson({ navigate, progressAPI, category }) {
 
   const { recordAnswer } = progressAPI
 
-  useEffect(() => {
-    if (questions[idx]) {
-      setOpts(getOptions(questions[idx], pool))
-      setPicked(null)
-    }
-  }, [idx, questions])
-
   function startRound() {
     const qs = pickQuestions(pool)
     setQuestions(qs)
@@ -60,8 +53,14 @@ export default function QuizLesson({ navigate, progressAPI, category }) {
 
     setTimeout(() => {
       document.activeElement?.blur?.()
-      if (idx + 1 >= questions.length) setDone(true)
-      else setIdx(i => i + 1)
+      const next = idx + 1
+      if (next >= questions.length) {
+        setDone(true)
+        return
+      }
+      setPicked(null)
+      setOpts(getOptions(questions[next], pool))
+      setIdx(next)
     }, 900)
   }
 

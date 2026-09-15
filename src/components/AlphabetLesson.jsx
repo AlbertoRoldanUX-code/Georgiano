@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { alphabet } from '../data/alphabet'
 import {
   playSelectSound,
@@ -29,7 +29,6 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
   const [picked, setPicked] = useState(null)
   const [score, setScore] = useState({ c: 0, w: 0 })
   const [done, setDone] = useState(false)
-  const [sessionKey, setSessionKey] = useState(0)
 
   const { progress, recordAlphabetSeen } = progressAPI
   const total = questions.length || SESSION_SIZE
@@ -42,16 +41,8 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
     setPicked(null)
     setScore({ c: 0, w: 0 })
     setDone(false)
-    setSessionKey(k => k + 1)
     setTab('practice')
   }
-
-  useEffect(() => {
-    if (tab === 'practice' && questions[qIdx] && qIdx > 0) {
-      setOpts(getOptions(questions[qIdx], alphabet))
-      setPicked(null)
-    }
-  }, [qIdx, tab, sessionKey])
 
   function handleSelect(letter) {
     setSelected(selected?.letter === letter.letter ? null : letter)
@@ -68,8 +59,15 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
     setScore(s => ({ c: s.c + (correct ? 1 : 0), w: s.w + (correct ? 0 : 1) }))
     setTimeout(() => {
       document.activeElement?.blur?.()
-      if (qIdx + 1 >= questions.length) setDone(true)
-      else setQIdx(i => i + 1)
+      const next = qIdx + 1
+      if (next >= questions.length) {
+        setDone(true)
+        return
+      }
+      // Clear feedback before showing the next question (avoids sticky red/green).
+      setPicked(null)
+      setOpts(getOptions(questions[next], alphabet))
+      setQIdx(next)
     }, 900)
   }
 
