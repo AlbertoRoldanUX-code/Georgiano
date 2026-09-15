@@ -1,0 +1,217 @@
+import { useState, useEffect } from 'react'
+import { alphabet } from '../data/alphabet'
+import {
+  playSelectSound,
+  playCorrectSound,
+  playWrongSound,
+  speakGeorgian,
+} from '../utils/audio'
+
+/** Duolingo: ~12–15 ejercicios / lección (~2–5 min). */
+const SESSION_SIZE = 12
+
+function shuffle(arr) {
+  return [...arr].sort(() => Math.random() - 0.5)
+}
+
+function getOptions(correct, all) {
+  const wrong = shuffle(all.filter(l => l.letter !== correct.letter)).slice(0, 3)
+  return shuffle([correct, ...wrong])
+}
+
+export default function AlphabetLesson({ navigate, progressAPI }) {
+  const [tab, setTab] = useState('browse') // 'browse' | 'practice'
+  const [selected, setSelected] = useState(null)
+
+  const [questions, setQuestions] = useState([])
+  const [qIdx, setQIdx] = useState(0)
+  const [opts, setOpts] = useState([])
+  const [picked, setPicked] = useState(null)
+  const [score, setScore] = useState({ c: 0, w: 0 })
+  const [done, setDone] = useState(false)
+  const [sessionKey, setSessionKey] = useState(0)
+
+  const { progress, recordAlphabetSeen } = progressAPI
+  const total = questions.length || SESSION_SIZE
+
+  function startPractice() {
+    const qs = shuffle(alphabet).slice(0, SESSION_SIZE)
+    setQuestions(qs)
+    setQIdx(0)
+    setOpts(getOptions(qs[0], alphabet))
+    setPicked(null)
+    setScore({ c: 0, w: 0 })
+    setDone(false)
+    setSessionKey(k => k + 1)
+    setTab('practice')
+  }
+
+  useEffect(() => {
+    if (tab === 'practice' && questions[qIdx] && qIdx > 0) {
+      setOpts(getOptions(questions[qIdx], alphabet))
+      setPicked(null)
+    }
+  }, [qIdx, tab, sessionKey])
+
+  function handleSelect(letter) {
+    setSelected(selected?.letter === letter.letter ? null : letter)
+    recordAlphabetSeen(letter.letter)
+  }
+
+  function handlePick(opt) {
+    if (picked) return
+    playSelectSound()
+    setPicked(opt.roman)
+    const correct = opt.roman === questions[qIdx].roman
+    if (correct) playCorrectSound()
+    else playWrongSound()
+    setScore(s => ({ c: s.c + (correct ? 1 : 0), w: s.w + (correct ? 0 : 1) }))
+    setTimeout(() => {
+      if (qIdx + 1 >= questions.length) {
+        setDone(true)
+      } else {
+        setQIdx(i => i + 1)
+      }
+    }, 900)
+  }
+
+  if (tab === 'practice' && done) {
+    return (
+      <div className="screen">
+        <div className="result-screen">
+          <div className="result-emoji">{score.c >= total * 0.8 ? '🏆' : '📚'}</div>
+          <h2 className="result-title">¡Completado!</h2>
+          <div className="result-score">{score.c}/{total}</div>
+          <div className="result-sub">
+            {score.c >= total * 0.9 ? '¡Excelente!'
+              : score.c >= total * 0.7 ? 'Muy bien. ¡Sigue practicando!'
+              : 'Continúa repasando las letras.'}
+          </div>
+          <div className="result-actions">
+            <button className="btn btn-primary" onClick={startPractice}>Otra ronda</button>
+            <button className="btn btn-ghost" onClick={() => navigate('home')}>Inicio</button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (tab === 'practice' && questions.length > 0) {
+    const q = questions[qIdx]
+    return (
+      <div className="screen">
+        <nav className="nav">
+          <button className="nav-back" onClick={() => setTab('browse')}>‹</button>
+          <span className="nav-title">Practicar</span>
+        </nav>
+
+        <div className="pbar">
+          <div className="pbar-fill" style={{ width: `${(qIdx / total) * 100}%` }} />
+        </div>
+
+        <div className="quiz-score" style={{ marginBottom: 24 }}>
+          <span style={{ fontSize: '0.8rem', color: 'var(--text3)', marginRight: 4 }}>
+            {qIdx + 1}/{total}
+          </span>
+          <span style={{ fontSize: '0.8rem', color: 'var(--success)', fontWeight: 600 }}>✓ {score.c}</span>
+          <span style={{ fontSize: '0.8rem', color: 'var(--error)', fontWeight: 600, marginLeft: 8 }}>✗ {score.w}</span>
+        </div>
+
+        <div className="practice-prompt">
+          <div className="practice-letter">{q.letter}</div>
+          <button
+            type="button"
+            className="sound-btn"
+            onClick={() => speakGeorgian(q.letter)}
+            aria-label="Escuchar pronunciación"
+          >
+            ▶ Escuchar
+          </button>
+        </div>
+
+        <div className="options-stack">
+          {opts.map(opt => {
+            let cls = 'option-row'
+            if (picked) {
+              if (opt.roman === questions[qIdx].roman) cls += ' correct'
+              else if (picked === opt.roman) cls += ' wrong'
+            }
+            return (
+              <button
+                key={opt.roman}
+                className={cls}
+                onClick={() => handlePick(opt)}
+                disabled={!!picked}
+              >
+                {opt.roman}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="screen">
+      <nav className="nav">
+        <button className="nav-back" onClick={() => navigate('home')}>‹</button>
+        <span className="nav-title">Aprender las letras</span>
+      </nav>
+
+      <div className="alpha-tabs">
+        <button
+          className={`alpha-tab ${tab === 'browse' ? 'active' : ''}`}
+          onClick={() => { setTab('browse'); setSelected(null) }}
+        >
+          Explorar
+        </button>
+        <button className={`alpha-tab ${tab === 'practice' ? 'active' : ''}`} onClick={startPractice}>
+          Practicar
+        </button>
+      </div>
+
+      <div className="letter-grid">
+        {alphabet.map(l => (
+          <button
+            key={l.letter}
+            className={`letter-tile ${progress.alphabetSeen.includes(l.letter) ? 'seen' : ''} ${selected?.letter === l.letter ? 'selected' : ''}`}
+            onClick={() => handleSelect(l)}
+          >
+            <span className="letter-geo">{l.letter}</span>
+            <span className="letter-roman">{l.roman}</span>
+          </button>
+        ))}
+      </div>
+
+      {selected && (
+        <div className="letter-detail">
+          <div className="letter-detail-big">{selected.letter}</div>
+          <div className="letter-detail-meta">
+            <div className="letter-detail-name">{selected.name}</div>
+            <div className="letter-detail-roman">Romanización: <strong>{selected.roman}</strong></div>
+            <div className="letter-detail-ipa">IPA: {selected.ipa}</div>
+          </div>
+          <button
+            type="button"
+            className="sound-btn"
+            style={{ margin: '12px auto 0', display: 'flex' }}
+            onClick={() => speakGeorgian(selected.letter)}
+          >
+            ▶ Escuchar
+          </button>
+          <div className="letter-example">
+            <div className="letter-example-geo">{selected.example}</div>
+            <div className="letter-example-meaning">«{selected.exMeaning}»</div>
+          </div>
+        </div>
+      )}
+
+      {!selected && (
+        <p style={{ textAlign: 'center', color: 'var(--text3)', fontSize: '0.875rem', marginTop: 8 }}>
+          Toca una letra para ver los detalles
+        </p>
+      )}
+    </div>
+  )
+}
