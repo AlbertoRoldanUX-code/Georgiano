@@ -1,5 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { vocabulary, allWords } from '../data/vocabulary'
+import { alphabet } from '../data/alphabet'
+
+const GEO_LETTERS = alphabet.map(l => l.letter)
 
 function shuffle(arr) {
   return [...arr].sort(() => Math.random() - 0.5)
@@ -27,51 +30,60 @@ export default function TranslationLesson({ navigate, progressAPI, category }) {
   const pool = category ? vocabulary[category].words : allWords
   const catTitle = category ? vocabulary[category].title : 'All'
 
-  const [questions] = useState(() => shuffle(pool).slice(0, 12))
+  const [questions] = useState(() => shuffle(pool).slice(0, 10))
   const [idx, setIdx] = useState(0)
   const [input, setInput] = useState('')
   const [status, setStatus] = useState(null)
   const [history, setHistory] = useState([])
   const [showHint, setShowHint] = useState(false)
   const [done, setDone] = useState(false)
-  const inputRef = useRef(null)
   const timerRef = useRef(null)
 
   const { recordAnswer } = progressAPI
+  const locked = status !== null
 
   useEffect(() => {
     setShowHint(false)
     setInput('')
     setStatus(null)
-    inputRef.current?.focus()
     timerRef.current = setTimeout(() => setShowHint(true), 4000)
     return () => clearTimeout(timerRef.current)
   }, [idx])
 
-  function handleSubmit(e) {
-    e.preventDefault()
-    if (status !== null || !input.trim()) return
-
-    const correct = isCorrect(input, questions[idx])
+  function finishAnswer(correct) {
     setStatus(correct ? 'correct' : 'wrong')
     recordAnswer(questions[idx].id, correct)
     setHistory(h => [...h, correct ? 'c' : 'w'])
-
     setTimeout(() => {
       if (idx + 1 >= questions.length) setDone(true)
       else setIdx(i => i + 1)
     }, 1200)
   }
 
+  function handleSubmit(e) {
+    e?.preventDefault?.()
+    if (locked || !input.trim()) return
+    finishAnswer(isCorrect(input, questions[idx]))
+  }
+
   function handleSkip() {
-    if (status !== null) return
-    setStatus('wrong')
-    recordAnswer(questions[idx].id, false)
-    setHistory(h => [...h, 'w'])
-    setTimeout(() => {
-      if (idx + 1 >= questions.length) setDone(true)
-      else setIdx(i => i + 1)
-    }, 1200)
+    if (locked) return
+    finishAnswer(false)
+  }
+
+  function typeLetter(letter) {
+    if (locked) return
+    setInput(v => v + letter)
+  }
+
+  function backspace() {
+    if (locked) return
+    setInput(v => v.slice(0, -1))
+  }
+
+  function clearAll() {
+    if (locked) return
+    setInput('')
   }
 
   const score = history.filter(h => h === 'c').length
@@ -88,10 +100,10 @@ export default function TranslationLesson({ navigate, progressAPI, category }) {
           <div className="result-score">{score}/{questions.length}</div>
           <div className="result-sub">{catTitle} · {pct}% correct</div>
           <div className="result-actions">
-            <button className="btn btn-primary" onClick={() => { setIdx(0); setHistory([]); setDone(false) }}>
+            <button type="button" className="btn btn-primary" onClick={() => { setIdx(0); setHistory([]); setDone(false) }}>
               Again
             </button>
-            <button className="btn btn-ghost" onClick={() => navigate('home')}>Home</button>
+            <button type="button" className="btn btn-ghost" onClick={() => navigate('home')}>Home</button>
           </div>
         </div>
       </div>
@@ -103,7 +115,7 @@ export default function TranslationLesson({ navigate, progressAPI, category }) {
   return (
     <div className="screen">
       <nav className="nav">
-        <button className="nav-back" onClick={() => navigate('home')}>‹</button>
+        <button type="button" className="nav-back" onClick={() => navigate('home')}>‹</button>
         <span className="nav-title">Write · {catTitle}</span>
       </nav>
 
@@ -122,7 +134,7 @@ export default function TranslationLesson({ navigate, progressAPI, category }) {
 
       <div className="trans-card">
         <div style={{ fontSize: '0.8125rem', color: 'var(--text3)', marginBottom: 8 }}>
-          Translate to Georgian:
+          Type in Georgian:
         </div>
         <div className="q-geo" style={{ fontFamily: 'inherit', fontSize: '2rem' }}>{q.english}</div>
         <div className={`trans-hint ${showHint ? 'visible' : 'hidden'}`}>
@@ -130,43 +142,51 @@ export default function TranslationLesson({ navigate, progressAPI, category }) {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit}>
-        <div className="input-row">
-          <input
-            ref={inputRef}
-            className={`trans-input ${status === 'correct' ? 'correct' : status === 'wrong' ? 'wrong' : ''}`}
-            type="text"
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            placeholder="Georgian or romanization…"
-            disabled={status !== null}
-            autoComplete="off"
-            autoCorrect="off"
-            spellCheck="false"
-          />
-          <button type="submit" className="submit-btn" disabled={!input.trim() || status !== null}>
-            →
+      <div className={`write-display ${status === 'correct' ? 'correct' : status === 'wrong' ? 'wrong' : ''}`}>
+        {input || <span className="write-placeholder">Tap letters below…</span>}
+      </div>
+
+      <div className="geo-keyboard" aria-label="Georgian alphabet keyboard">
+        {GEO_LETTERS.map(letter => (
+          <button
+            key={letter}
+            type="button"
+            className="geo-key"
+            disabled={locked}
+            onClick={() => typeLetter(letter)}
+          >
+            {letter}
           </button>
-        </div>
-      </form>
+        ))}
+        <button type="button" className="geo-key geo-key-wide" disabled={locked} onClick={backspace}>
+          ⌫
+        </button>
+        <button type="button" className="geo-key geo-key-wide" disabled={locked} onClick={clearAll}>
+          Clear
+        </button>
+        <button
+          type="button"
+          className="geo-key geo-key-check"
+          disabled={locked || !input.trim()}
+          onClick={handleSubmit}
+        >
+          Check →
+        </button>
+      </div>
 
       {status === 'correct' && (
         <div className="feedback-msg correct">
-          ✓ Correct! — {q.georgian} ({q.roman})
+          ✓ Correct! — {q.georgian}
         </div>
       )}
       {status === 'wrong' && (
         <div className="feedback-msg wrong">
-          ✗ Answer: <strong>{q.georgian}</strong> ({q.roman})
+          ✗ Answer: <strong>{q.georgian}</strong>
         </div>
       )}
 
       {status === null && (
-        <button
-          className="btn btn-ghost"
-          style={{ marginTop: 4, width: '100%' }}
-          onClick={handleSkip}
-        >
+        <button type="button" className="btn btn-ghost" style={{ marginTop: 10, width: '100%' }} onClick={handleSkip}>
           Skip
         </button>
       )}

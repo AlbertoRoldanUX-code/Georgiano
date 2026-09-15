@@ -228,16 +228,22 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
           className={`alpha-tab ${tab === 'browse' ? 'active' : ''}`}
           onClick={() => { setTab('browse'); setSelected(null) }}
         >
-          Browse
+          Study letters
         </button>
         <button
           type="button"
           className={`alpha-tab ${tab === 'practice' ? 'active' : ''}`}
           onClick={startPractice}
         >
-          Practice
+          Quiz
         </button>
       </div>
+
+      {tab === 'browse' && (
+        <p style={{ color: 'var(--text3)', fontSize: '0.8125rem', marginBottom: 14, lineHeight: 1.4 }}>
+          Tap any letter to see its sound and an example word.
+        </p>
+      )}
 
       <div className="letter-grid">
         {alphabet.map(l => (
