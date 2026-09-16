@@ -15,6 +15,12 @@ export function speakWord(text) {
   playFile(src).catch(() => {})
 }
 
+/** Single Mkhedruli letter sound (files live in /audio/, not /audio/words/). */
+export function speakLetter(letter) {
+  const src = `/audio/${wordAudioKey(letter)}.mp3`
+  playFile(src).catch(() => {})
+}
+
 export function playCorrectSound() {
   playFile('/audio/correct.wav').catch(() => {})
 }

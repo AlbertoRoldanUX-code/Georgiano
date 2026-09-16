@@ -173,7 +173,7 @@ export const vocabulary = {
 
 export const allWords = Object.values(vocabulary).flatMap(c => c.words)
 
-/** Learning path: alphabet → decode → skills (input → output). */
+/** Learning path: alphabet → decode → listen → words → phrases → write */
 export const learningPath = [
   {
     id: 'alphabet',
@@ -195,25 +195,25 @@ export const learningPath = [
     id: 'listen',
     step: 3,
     title: 'Listen',
-    desc: 'Hear a word, pick the meaning',
+    desc: 'Letters & words by ear, plus dictation',
     skill: 'Listening',
     view: 'listen',
   },
   {
-    id: 'read',
+    id: 'words',
     step: 4,
-    title: 'Read',
-    desc: 'See Georgian, pick the meaning',
-    skill: 'Reading',
-    view: 'read',
+    title: 'Words',
+    desc: 'See, hear, understand, and produce',
+    skill: 'Mixed practice',
+    view: 'words',
   },
   {
-    id: 'speak',
+    id: 'phrases',
     step: 5,
-    title: 'Speak',
-    desc: 'Hear the model, pick the word',
-    skill: 'Speaking',
-    view: 'speak',
+    title: 'Phrases',
+    desc: 'Useful patterns through examples',
+    skill: 'Production',
+    view: 'phrases',
   },
   {
     id: 'write',

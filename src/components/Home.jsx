@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { vocabulary, allWords, learningPath } from '../data/vocabulary'
 import { isPathUnlocked, unlockHint, pathProgressLabel } from '../utils/pathUnlock'
 
+const NO_CATEGORY = new Set(['alphabet', 'decode', 'phrases'])
+
 export default function Home({ navigate, progress }) {
   const [openSkill, setOpenSkill] = useState(null)
 
@@ -24,7 +26,7 @@ export default function Home({ navigate, progress }) {
       <div className="home-header">
         <div className="home-geo">გამარჯობა!</div>
         <h1 className="home-title">Learn Georgian</h1>
-        <p className="home-sub">Alphabet → decode → listen → speak</p>
+        <p className="home-sub">Alphabet → decode → listen → words → phrases</p>
       </div>
 
       <div className="stats-row">
@@ -45,7 +47,7 @@ export default function Home({ navigate, progress }) {
       <div className="path-label">Your learning path</div>
       <div className="module-list">
         {learningPath.map(item => {
-          const needsCategory = item.view !== 'alphabet' && item.view !== 'decode'
+          const needsCategory = !NO_CATEGORY.has(item.view)
           const unlocked = isPathUnlocked(item.id, progress)
           const isOpen = unlocked && openSkill === item.id
           const hint = unlockHint(item.id, progress)
@@ -59,8 +61,7 @@ export default function Home({ navigate, progress }) {
                 aria-disabled={!unlocked}
                 onClick={() => {
                   if (!unlocked) return
-                  if (item.view === 'alphabet') navigate('alphabet')
-                  else if (item.view === 'decode') navigate('decode')
+                  if (NO_CATEGORY.has(item.view)) navigate(item.view)
                   else toggleSkill(item.id)
                 }}
               >

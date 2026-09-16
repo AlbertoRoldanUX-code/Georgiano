@@ -30,11 +30,24 @@ export function emptyWordEntry() {
     listening: emptySkillCard(),
     reading: emptySkillCard(),
     meaning: emptySkillCard(),
+    produce: emptySkillCard(),
+  }
+}
+
+export function emptyPhraseEntry() {
+  return {
+    comprehend: emptySkillCard(),
+    order: emptySkillCard(),
+    produce: emptySkillCard(),
   }
 }
 
 function clampLevel(n) {
   return Math.max(0, Math.min(INTERVALS_MIN.length - 1, n))
+}
+
+export function shuffle(arr) {
+  return [...arr].sort(() => Math.random() - 0.5)
 }
 
 export function isDue(card, now = Date.now()) {
@@ -107,12 +120,8 @@ export function matchesRoman(input, letterObj) {
   })
 }
 
-function shuffle(arr) {
-  return [...arr].sort(() => Math.random() - 0.5)
-}
-
 /** Priority: due soon / weak / confused → higher weight. */
-function priority(card, confusionBoost = 0) {
+export function priority(card, confusionBoost = 0) {
   const now = Date.now()
   let score = 0
   if (!card?.attempts) score += 40

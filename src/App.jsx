@@ -5,6 +5,9 @@ import { isPathUnlocked } from './utils/pathUnlock'
 import Home from './components/Home'
 import AlphabetLesson from './components/AlphabetLesson'
 import DecodeLesson from './components/DecodeLesson'
+import ListenLesson from './components/ListenLesson'
+import WordsLesson from './components/WordsLesson'
+import PhrasesLesson from './components/PhrasesLesson'
 import SkillLesson from './components/SkillLesson'
 import TranslationLesson from './components/TranslationLesson'
 
@@ -12,7 +15,7 @@ function pathIdForView(view) {
   if (view === 'quiz') return 'speak'
   if (view === 'translation') return 'write'
   const item = learningPath.find(p => p.view === view || p.id === view)
-  return item?.id || null
+  return item?.id || view
 }
 
 export default function App() {
@@ -21,7 +24,7 @@ export default function App() {
 
   const navigate = (view, params = {}) => {
     const pathId = pathIdForView(view)
-    if (pathId && !isPathUnlocked(pathId, progressAPI.progress)) {
+    if (pathId && pathId !== 'home' && !isPathUnlocked(pathId, progressAPI.progress)) {
       setScreen({ view: 'home' })
       return
     }
@@ -38,19 +41,22 @@ export default function App() {
     return <DecodeLesson navigate={navigate} progressAPI={progressAPI} />
 
   if (screen.view === 'listen')
-    return <SkillLesson navigate={navigate} progressAPI={progressAPI} category={screen.category} mode="listen" />
+    return <ListenLesson navigate={navigate} progressAPI={progressAPI} category={screen.category} />
 
-  if (screen.view === 'read')
-    return <SkillLesson navigate={navigate} progressAPI={progressAPI} category={screen.category} mode="read" />
+  if (screen.view === 'words')
+    return <WordsLesson navigate={navigate} progressAPI={progressAPI} category={screen.category} />
 
-  if (screen.view === 'speak')
-    return <SkillLesson navigate={navigate} progressAPI={progressAPI} category={screen.category} mode="speak" />
+  if (screen.view === 'phrases')
+    return <PhrasesLesson navigate={navigate} progressAPI={progressAPI} />
 
   if (screen.view === 'write')
     return <TranslationLesson navigate={navigate} progressAPI={progressAPI} category={screen.category} />
 
   // Legacy routes
-  if (screen.view === 'quiz')
+  if (screen.view === 'read')
+    return <SkillLesson navigate={navigate} progressAPI={progressAPI} category={screen.category} mode="read" />
+
+  if (screen.view === 'speak' || screen.view === 'quiz')
     return <SkillLesson navigate={navigate} progressAPI={progressAPI} category={screen.category} mode="speak" />
 
   if (screen.view === 'translation')

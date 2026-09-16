@@ -4,6 +4,7 @@ import {
   applyResult,
   emptyLetterEntry,
   emptyWordEntry,
+  emptyPhraseEntry,
 } from '../utils/srs'
 
 const KEY = 'georgiano_v1'
@@ -19,6 +20,7 @@ function defaults() {
     alphabetBestQuiz: 0,
     letters: {},
     words: {},
+    phrases: {},
     skills: emptySkills(),
   }
 }
@@ -43,6 +45,7 @@ function migrate(raw) {
     alphabetBestQuiz: Number(raw.alphabetBestQuiz) || 0,
     letters,
     words: raw.words && typeof raw.words === 'object' ? raw.words : {},
+    phrases: raw.phrases && typeof raw.phrases === 'object' ? raw.phrases : {},
     skills: {
       ...base.skills,
       ...(raw.skills || {}),
@@ -188,7 +191,7 @@ export function useProgress() {
     })
   }
 
-  /** @param {'decode'|'listening'|'reading'|'meaning'} skill */
+  /** @param {'decode'|'listening'|'reading'|'meaning'|'produce'} skill */
   function recordWordResult(wordId, skill, correct) {
     setProgress(p => {
       const { streak, lastDate } = bumpStreak(p)
@@ -216,6 +219,30 @@ export function useProgress() {
     })
   }
 
+  /** @param {'comprehend'|'order'|'produce'} skill */
+  function recordPhraseResult(phraseId, skill, correct) {
+    setProgress(p => {
+      const { streak, lastDate } = bumpStreak(p)
+      const prev = p.phrases?.[phraseId] || emptyPhraseEntry()
+      const card = applyResult(prev[skill] || emptyPhraseEntry()[skill], correct)
+
+      return {
+        ...p,
+        streak,
+        lastDate,
+        totalCorrect: p.totalCorrect + (correct ? 1 : 0),
+        totalAttempts: p.totalAttempts + 1,
+        phrases: {
+          ...p.phrases,
+          [phraseId]: {
+            ...prev,
+            [skill]: card,
+          },
+        },
+      }
+    })
+  }
+
   function resetProgress() {
     setProgress(defaults())
   }
@@ -228,6 +255,7 @@ export function useProgress() {
     recordAlphabetQuiz,
     recordLetterResult,
     recordWordResult,
+    recordPhraseResult,
     resetProgress,
   }
 }

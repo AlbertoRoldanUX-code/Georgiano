@@ -18,13 +18,20 @@ const SKILL_MIN_BEST_PCT = 70
 const SKILL_MIN_CORRECT = 12
 const SKILL_MIN_ACCURACY = 0.65
 
+/**
+ * New path: alphabet → decode → listen → words → phrases → write
+ * Legacy ids read/speak still resolve for old links.
+ */
 const PREV = {
   alphabet: null,
   decode: 'alphabet',
   listen: 'decode',
+  words: 'listen',
+  phrases: 'words',
+  write: 'phrases',
+  // Legacy aliases
   read: 'listen',
-  speak: 'read',
-  write: 'speak',
+  speak: 'words',
 }
 
 const TITLES = Object.fromEntries(learningPath.map(p => [p.id, p.title]))
@@ -40,6 +47,8 @@ export function emptySkills() {
     speak: emptySkill(),
     write: emptySkill(),
     decode: emptySkill(),
+    words: emptySkill(),
+    phrases: emptySkill(),
   }
 }
 
@@ -68,6 +77,20 @@ function skillReady(stats) {
 
 function blockReady(id, progress) {
   if (id === 'alphabet') return alphabetReady(progress)
+  if (id === 'words') {
+    // Words unlocks if listen ready OR legacy read skill was already progressing
+    return skillReady(skillStats(progress, 'listen')) || skillReady(skillStats(progress, 'read'))
+  }
+  if (id === 'phrases') {
+    return skillReady(skillStats(progress, 'words'))
+      || skillReady(skillStats(progress, 'speak'))
+      || skillReady(skillStats(progress, 'read'))
+  }
+  if (id === 'write') {
+    return skillReady(skillStats(progress, 'phrases'))
+      || skillReady(skillStats(progress, 'speak'))
+      || skillReady(skillStats(progress, 'write'))
+  }
   return skillReady(skillStats(progress, id))
 }
 
@@ -84,15 +107,26 @@ function grandfatherListen(progress) {
 /** First step is always open; each later step needs the previous block cleared. */
 export function isPathUnlocked(id, progress) {
   if (id === 'listen' && grandfatherListen(progress)) return true
+  // Legacy screens
+  if (id === 'read') return isPathUnlocked('words', progress)
+  if (id === 'speak') return isPathUnlocked('phrases', progress)
+
   const prev = PREV[id]
   if (!prev) return true
+  if (prev === 'alphabet') return alphabetReady(progress)
+  if (prev === 'decode') return blockReady('decode', progress) || grandfatherListen(progress)
+  if (prev === 'listen') {
+    return blockReady('listen', progress) || skillReady(skillStats(progress, 'read'))
+  }
+  if (prev === 'words') return blockReady('words', progress)
+  if (prev === 'phrases') return blockReady('phrases', progress)
   return blockReady(prev, progress)
 }
 
 export function unlockHint(id, progress) {
   if (isPathUnlocked(id, progress)) return null
 
-  const prev = PREV[id]
+  const prev = PREV[id] || 'listen'
   const prevTitle = TITLES[prev] || prev
 
   if (prev === 'alphabet') {

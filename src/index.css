@@ -488,6 +488,77 @@ body {
   display: flex;
 }
 
+.phrase-pattern {
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--primary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+}
+
+.phrase-note {
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: var(--primary-light);
+  border-radius: var(--r);
+  font-size: 0.8125rem;
+  color: var(--text2);
+  line-height: 1.4;
+  text-align: center;
+}
+
+.order-area {
+  margin-top: 8px;
+}
+
+.order-built {
+  min-height: 64px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 12px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--r);
+  background: var(--surface);
+  margin-bottom: 12px;
+}
+
+.order-built.correct {
+  border-color: var(--success);
+  background: var(--success-bg);
+}
+
+.order-built.wrong {
+  border-color: var(--error);
+  background: var(--error-bg);
+}
+
+.order-bank {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.order-chip {
+  font-family: 'Sylfaen', 'BPG Arial', serif;
+  font-size: 1.125rem;
+  padding: 10px 14px;
+  border-radius: var(--r);
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  cursor: pointer;
+  box-shadow: var(--sh);
+}
+
+.order-chip.bank {
+  background: var(--primary-light);
+  border-color: var(--primary);
+}
+
 .letter-detail {
   background: var(--surface);
   border: 1.5px solid var(--primary);
