@@ -203,7 +203,7 @@ body {
 
 .module-card {
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1.5px solid var(--border);
   border-radius: var(--rl);
   padding: 18px 20px;
   cursor: pointer;
@@ -219,19 +219,27 @@ body {
 .module-card:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
 .module-card:active { transform: scale(0.99); }
 .module-card.is-locked {
-  opacity: 0.62;
+  background: #ECEAE6;
+  border: 1.5px dashed #C9C6BF;
+  opacity: 1;
   cursor: not-allowed;
   box-shadow: none;
+  filter: grayscale(0.55);
 }
 .module-card.is-locked:hover,
 .module-card.is-locked:active {
   transform: none;
   box-shadow: none;
 }
-.module-card.is-locked .module-title,
+.module-card.is-locked .module-title {
+  color: #8A8780;
+  font-weight: 600;
+}
 .module-card.is-locked .module-desc,
-.module-card.is-locked .module-skill {
-  color: var(--text3);
+.module-card.is-locked .module-skill,
+.module-card.is-locked .module-progress,
+.module-card.is-locked .module-arrow {
+  color: #A8A59E;
 }
 
 .module-tooltip {
@@ -320,11 +328,13 @@ body {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  border: 1.5px solid transparent;
 }
 .module-step.is-locked {
-  background: var(--border);
-  color: var(--text3);
+  background: #D9D6CF;
+  color: #7A776F;
   font-size: 0.95rem;
+  border-color: #C2BEB6;
 }
 .module-skill {
   font-size: 0.75rem;
@@ -380,18 +390,32 @@ body {
   padding: 12px 14px;
   border-radius: var(--r);
   border: 1.5px solid var(--border);
-  background: var(--bg);
+  background: var(--surface);
   font-family: inherit;
   cursor: pointer;
   transition: all 0.15s;
+  box-shadow: var(--sh);
 }
 .level-btn:hover:not(:disabled) {
   border-color: var(--primary);
   background: var(--primary-light);
 }
 .level-btn.is-locked {
-  opacity: 0.72;
+  opacity: 1;
   cursor: not-allowed;
+  background: #ECEAE6;
+  border: 1.5px dashed #C9C6BF;
+  box-shadow: none;
+  filter: grayscale(0.55);
+}
+.level-btn.is-locked .level-title {
+  color: #8A8780;
+}
+.level-btn.is-locked .level-sub,
+.level-btn.is-locked .level-count,
+.level-btn.is-locked .level-lock-hint,
+.level-btn.is-locked .module-arrow {
+  color: #A8A59E;
 }
 .level-badge {
   width: 36px;
@@ -405,10 +429,12 @@ body {
   color: var(--primary);
   background: var(--primary-light);
   flex-shrink: 0;
+  border: 1.5px solid transparent;
 }
 .level-badge.is-locked {
-  color: var(--text3);
-  background: var(--border);
+  color: #7A776F;
+  background: #D9D6CF;
+  border-color: #C2BEB6;
 }
 .level-info { flex: 1; min-width: 0; }
 .level-title {
