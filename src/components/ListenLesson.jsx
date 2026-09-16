@@ -1,6 +1,7 @@
 import { useEffect, useReducer, useRef } from 'react'
 import { alphabet } from '../data/alphabet'
-import { vocabulary, allWords } from '../data/vocabulary'
+import { allWords } from '../data/vocabulary'
+import { getListenLevel, wordsForListenLevel } from '../data/levels'
 import { playCorrectSound, playWrongSound, speakLetter, speakWord } from '../utils/audio'
 import { normalize, normalizeLoose } from '../utils/normalize'
 import { recognitionOptions, shuffle } from '../utils/srs'
@@ -21,12 +22,15 @@ function buildSession(progress, pool) {
     (w, p) => p.words?.[w.id]?.listening,
     Math.min(8, pool.length),
   )
-  const letters = pickSpacedItems(
-    progress,
-    alphabet,
-    (l, p) => p.letters?.[l.letter]?.recognition,
-    4,
-  ).slice(0, 2)
+  const includeLetters = pool.length <= 30 || pool.every(w => [...w.georgian].length <= 5)
+  const letters = includeLetters
+    ? pickSpacedItems(
+      progress,
+      alphabet,
+      (l, p) => p.letters?.[l.letter]?.recognition,
+      4,
+    ).slice(0, 2)
+    : []
 
   const items = []
   let i = 0
@@ -121,12 +125,20 @@ function kindLabel(kind) {
   return 'Listen — pick the meaning'
 }
 
-export default function ListenLesson({ navigate, progressAPI, category }) {
-  const pool = category ? vocabulary[category].words : allWords
-  const catTitle = category ? vocabulary[category].title : 'All'
+export default function ListenLesson({ navigate, progressAPI, level }) {
+  const levelMeta = getListenLevel(level)
+  const pool = level ? wordsForListenLevel(level) : allWords
+  const title = levelMeta ? levelMeta.title : 'All levels'
   const [state, dispatch] = useReducer(reducer, initial)
   const inputRef = useRef(null)
-  const { progress, recordAnswer, recordSkillRound, recordWordResult, recordLetterResult } = progressAPI
+  const {
+    progress,
+    recordAnswer,
+    recordSkillRound,
+    recordListenLevelRound,
+    recordWordResult,
+    recordLetterResult,
+  } = progressAPI
   const showingFeedback = state.status === 'feedback'
 
   function start() {
@@ -137,7 +149,7 @@ export default function ListenLesson({ navigate, progressAPI, category }) {
   useEffect(() => {
     start()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [category])
+  }, [level])
 
   useEffect(() => {
     if (!state.active || state.done) return
@@ -166,7 +178,9 @@ export default function ListenLesson({ navigate, progressAPI, category }) {
       document.activeElement?.blur?.()
       if (willFinish) {
         const score = nextHistory.filter(h => h === 'c').length
-        recordSkillRound('listen', Math.round((score / state.questions.length) * 100))
+        const pct = Math.round((score / state.questions.length) * 100)
+        recordSkillRound('listen', pct)
+        if (level) recordListenLevelRound(level, pct)
       }
       dispatch({ type: 'next' })
     }, 1000)
@@ -208,7 +222,7 @@ export default function ListenLesson({ navigate, progressAPI, category }) {
           <div className="result-emoji">{pct >= 90 ? '🏆' : pct >= 70 ? '🎧' : '👂'}</div>
           <h2 className="result-title">Listening done</h2>
           <div className="result-score">{score}/{state.questions.length}</div>
-          <div className="result-sub">{catTitle} · {pct}%</div>
+          <div className="result-sub">{title} · {pct}%</div>
           <div className="result-actions">
             <button type="button" className="btn btn-primary" onClick={start}>Again</button>
             <button type="button" className="btn btn-ghost" onClick={() => navigate('home')}>Home</button>
@@ -223,7 +237,7 @@ export default function ListenLesson({ navigate, progressAPI, category }) {
       <div className="screen">
         <nav className="nav">
           <button type="button" className="nav-back" onClick={() => navigate('home')}>‹</button>
-          <span className="nav-title">Listen · {catTitle}</span>
+          <span className="nav-title">Listen · {title}</span>
         </nav>
         <p style={{ color: 'var(--text3)' }}>Loading…</p>
       </div>
@@ -237,7 +251,7 @@ export default function ListenLesson({ navigate, progressAPI, category }) {
     <div className="screen">
       <nav className="nav">
         <button type="button" className="nav-back" onClick={() => navigate('home')}>‹</button>
-        <span className="nav-title">Listen · {catTitle}</span>
+        <span className="nav-title">Listen · {title}</span>
       </nav>
 
       <div className="pbar">

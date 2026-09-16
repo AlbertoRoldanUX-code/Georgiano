@@ -41,7 +41,7 @@ export default function App() {
     return <DecodeLesson navigate={navigate} progressAPI={progressAPI} />
 
   if (screen.view === 'listen')
-    return <ListenLesson navigate={navigate} progressAPI={progressAPI} category={screen.category} />
+    return <ListenLesson navigate={navigate} progressAPI={progressAPI} level={screen.level} />
 
   if (screen.view === 'words')
     return <WordsLesson navigate={navigate} progressAPI={progressAPI} category={screen.category} />

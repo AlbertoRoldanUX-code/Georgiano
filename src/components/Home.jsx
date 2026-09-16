@@ -1,5 +1,10 @@
 import { useState } from 'react'
 import { vocabulary, allWords, learningPath } from '../data/vocabulary'
+import {
+  listenLevels,
+  isListenLevelUnlocked,
+  listenLevelUnlockHint,
+} from '../data/levels'
 import { isPathUnlocked, unlockHint, pathProgressLabel } from '../utils/pathUnlock'
 
 const NO_CATEGORY = new Set(['alphabet', 'decode', 'phrases'])
@@ -19,6 +24,11 @@ export default function Home({ navigate, progress }) {
   function goSkill(view, category = null) {
     setOpenSkill(null)
     navigate(view, { category })
+  }
+
+  function goListenLevel(levelId) {
+    setOpenSkill(null)
+    navigate('listen', { level: levelId })
   }
 
   return (
@@ -47,7 +57,8 @@ export default function Home({ navigate, progress }) {
       <div className="path-label">Your learning path</div>
       <div className="module-list">
         {learningPath.map(item => {
-          const needsCategory = !NO_CATEGORY.has(item.view)
+          const isListen = item.view === 'listen'
+          const needsCategory = !NO_CATEGORY.has(item.view) && !isListen
           const unlocked = isPathUnlocked(item.id, progress)
           const isOpen = unlocked && openSkill === item.id
           const hint = unlockHint(item.id, progress)
@@ -79,7 +90,7 @@ export default function Home({ navigate, progress }) {
                 <div
                   className="module-arrow"
                   style={{
-                    transform: needsCategory && isOpen ? 'rotate(90deg)' : 'none',
+                    transform: (needsCategory || isListen) && isOpen ? 'rotate(90deg)' : 'none',
                     transition: '0.2s',
                   }}
                 >
@@ -95,6 +106,42 @@ export default function Home({ navigate, progress }) {
                       <li key={line}>{line}</li>
                     ))}
                   </ul>
+                </div>
+              )}
+
+              {isListen && isOpen && (
+                <div className="level-list">
+                  {listenLevels.map(lv => {
+                    const open = isListenLevelUnlocked(lv.id, progress)
+                    const best = progress.listenLevelBest?.[String(lv.id)]
+                    const lockHint = listenLevelUnlockHint(lv.id, progress)
+                    return (
+                      <button
+                        key={lv.key}
+                        type="button"
+                        className={`level-btn${open ? '' : ' is-locked'}`}
+                        disabled={!open}
+                        title={lockHint || undefined}
+                        onClick={() => open && goListenLevel(lv.id)}
+                      >
+                        <div className={`level-badge${open ? '' : ' is-locked'}`}>
+                          {open ? lv.icon : '🔒'}
+                        </div>
+                        <div className="level-info">
+                          <div className="level-title">{lv.title}</div>
+                          <div className="level-sub">{lv.subtitle}</div>
+                          <div className="level-count">
+                            {lv.words.length} words
+                            {best != null ? ` · best ${best}%` : ''}
+                          </div>
+                          {!open && lockHint && (
+                            <div className="level-lock-hint">{lockHint}</div>
+                          )}
+                        </div>
+                        {open && <div className="module-arrow">›</div>}
+                      </button>
+                    )
+                  })}
                 </div>
               )}
 

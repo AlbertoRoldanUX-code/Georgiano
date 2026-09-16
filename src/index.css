@@ -365,6 +365,73 @@ body {
 .cat-btn-title { font-size: 0.875rem; font-weight: 600; margin-top: 6px; color: var(--text); }
 .cat-btn-count { font-size: 0.75rem; color: var(--text3); margin-top: 2px; }
 
+.level-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+.level-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 12px 14px;
+  border-radius: var(--r);
+  border: 1.5px solid var(--border);
+  background: var(--bg);
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.level-btn:hover:not(:disabled) {
+  border-color: var(--primary);
+  background: var(--primary-light);
+}
+.level-btn.is-locked {
+  opacity: 0.72;
+  cursor: not-allowed;
+}
+.level-badge {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--primary);
+  background: var(--primary-light);
+  flex-shrink: 0;
+}
+.level-badge.is-locked {
+  color: var(--text3);
+  background: var(--border);
+}
+.level-info { flex: 1; min-width: 0; }
+.level-title {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.level-sub {
+  font-size: 0.75rem;
+  color: var(--text2);
+  margin-top: 1px;
+}
+.level-count {
+  font-size: 0.75rem;
+  color: var(--text3);
+  margin-top: 2px;
+}
+.level-lock-hint {
+  font-size: 0.7rem;
+  color: var(--text3);
+  margin-top: 4px;
+}
+
 /* ── Alphabet ── */
 .alpha-tabs {
   display: flex;

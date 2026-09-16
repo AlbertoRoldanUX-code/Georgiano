@@ -21,6 +21,7 @@ function defaults() {
     letters: {},
     words: {},
     phrases: {},
+    listenLevelBest: {},
     skills: emptySkills(),
   }
 }
@@ -46,6 +47,10 @@ function migrate(raw) {
     letters,
     words: raw.words && typeof raw.words === 'object' ? raw.words : {},
     phrases: raw.phrases && typeof raw.phrases === 'object' ? raw.phrases : {},
+    listenLevelBest:
+      raw.listenLevelBest && typeof raw.listenLevelBest === 'object'
+        ? raw.listenLevelBest
+        : {},
     skills: {
       ...base.skills,
       ...(raw.skills || {}),
@@ -125,6 +130,22 @@ export function useProgress() {
         skills: {
           ...p.skills,
           [skill]: { ...cur, bestPct: pct },
+        },
+      }
+    })
+  }
+
+  function recordListenLevelRound(levelId, pct) {
+    if (!levelId) return
+    setProgress(p => {
+      const key = String(levelId)
+      const prev = p.listenLevelBest?.[key] || 0
+      if (prev >= pct) return p
+      return {
+        ...p,
+        listenLevelBest: {
+          ...(p.listenLevelBest || {}),
+          [key]: pct,
         },
       }
     })
@@ -251,6 +272,7 @@ export function useProgress() {
     progress,
     recordAnswer,
     recordSkillRound,
+    recordListenLevelRound,
     recordAlphabetSeen,
     recordAlphabetQuiz,
     recordLetterResult,
