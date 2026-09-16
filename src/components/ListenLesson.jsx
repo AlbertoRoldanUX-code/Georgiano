@@ -274,9 +274,6 @@ export default function ListenLesson({ navigate, progressAPI, level }) {
         <button type="button" className="sound-btn sound-btn-lg" onClick={playPrompt}>
           ▶ Listen
         </button>
-        <button type="button" className="btn btn-ghost" style={{ marginTop: 8 }} onClick={playPrompt}>
-          Replay
-        </button>
       </div>
 
       {q.kind === 'dictation' ? (
