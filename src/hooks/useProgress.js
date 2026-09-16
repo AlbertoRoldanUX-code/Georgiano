@@ -22,8 +22,15 @@ function defaults() {
     words: {},
     phrases: {},
     listenLevelBest: {},
+    wordsLevelBest: {},
+    phrasesLevelBest: {},
+    writeLevelBest: {},
     skills: emptySkills(),
   }
+}
+
+function asBestMap(raw) {
+  return raw && typeof raw === 'object' ? raw : {}
 }
 
 function migrate(raw) {
@@ -47,10 +54,10 @@ function migrate(raw) {
     letters,
     words: raw.words && typeof raw.words === 'object' ? raw.words : {},
     phrases: raw.phrases && typeof raw.phrases === 'object' ? raw.phrases : {},
-    listenLevelBest:
-      raw.listenLevelBest && typeof raw.listenLevelBest === 'object'
-        ? raw.listenLevelBest
-        : {},
+    listenLevelBest: asBestMap(raw.listenLevelBest),
+    wordsLevelBest: asBestMap(raw.wordsLevelBest),
+    phrasesLevelBest: asBestMap(raw.phrasesLevelBest),
+    writeLevelBest: asBestMap(raw.writeLevelBest),
     skills: {
       ...base.skills,
       ...(raw.skills || {}),
@@ -136,15 +143,26 @@ export function useProgress() {
   }
 
   function recordListenLevelRound(levelId, pct) {
-    if (!levelId) return
+    recordLevelRound('listen', levelId, pct)
+  }
+
+  function recordLevelRound(skill, levelId, pct) {
+    if (!skill || !levelId) return
+    const field =
+      skill === 'listen' ? 'listenLevelBest'
+      : skill === 'words' ? 'wordsLevelBest'
+      : skill === 'phrases' ? 'phrasesLevelBest'
+      : skill === 'write' ? 'writeLevelBest'
+      : null
+    if (!field) return
     setProgress(p => {
       const key = String(levelId)
-      const prev = p.listenLevelBest?.[key] || 0
+      const prev = p[field]?.[key] || 0
       if (prev >= pct) return p
       return {
         ...p,
-        listenLevelBest: {
-          ...(p.listenLevelBest || {}),
+        [field]: {
+          ...(p[field] || {}),
           [key]: pct,
         },
       }
@@ -273,6 +291,7 @@ export function useProgress() {
     recordAnswer,
     recordSkillRound,
     recordListenLevelRound,
+    recordLevelRound,
     recordAlphabetSeen,
     recordAlphabetQuiz,
     recordLetterResult,

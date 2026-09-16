@@ -1,15 +1,16 @@
 import { useEffect, useReducer } from 'react'
-import { phrases } from '../data/phrases'
+import { phrases as allPhrases } from '../data/phrases'
+import { getLevel, itemsForLevel } from '../data/levels'
 import { playCorrectSound, playWrongSound, speakPhrase } from '../utils/audio'
 import { shuffle } from '../utils/srs'
 import { mcqOptions, pickSpacedItems } from '../utils/sessionPick'
 
 const SESSION_SIZE = 8
 
-function buildSession(progress) {
+function buildSession(progress, pool) {
   const picked = pickSpacedItems(
     progress,
-    phrases,
+    pool,
     (ph, p) => {
       const e = p.phrases?.[ph.id]
       if (!e) return null
@@ -17,7 +18,7 @@ function buildSession(progress) {
       if (!cards.length) return null
       return cards.sort((a, b) => (a.level || 0) - (b.level || 0))[0]
     },
-    SESSION_SIZE,
+    Math.min(SESSION_SIZE, pool.length),
   )
 
   return picked.map((ph, i) => {
@@ -29,9 +30,9 @@ function buildSession(progress) {
   })
 }
 
-function optsFor(q) {
+function optsFor(q, pool) {
   if (!q || q.kind === 'order') return []
-  return mcqOptions(q.phrase, phrases)
+  return mcqOptions(q.phrase, pool)
 }
 
 const initial = {
@@ -39,6 +40,7 @@ const initial = {
   done: false,
   status: 'prompt',
   questions: [],
+  pool: [],
   idx: 0,
   opts: [],
   pickedId: null,
@@ -52,13 +54,14 @@ const initial = {
 function reducer(state, action) {
   switch (action.type) {
     case 'boot': {
-      const { questions } = action
+      const { questions, pool } = action
       const q0 = questions[0]
       return {
         ...initial,
         active: true,
         questions,
-        opts: optsFor(q0),
+        pool,
+        opts: optsFor(q0, pool),
         bank: q0?.kind === 'order' ? shuffle(q0.phrase.tokens) : [],
         built: [],
         step: 1,
@@ -97,7 +100,7 @@ function reducer(state, action) {
       return {
         ...state,
         idx: next,
-        opts: optsFor(q),
+        opts: optsFor(q, state.pool),
         status: 'prompt',
         pickedId: null,
         bank: q.kind === 'order' ? shuffle(q.phrase.tokens) : [],
@@ -122,19 +125,22 @@ function skillFor(kind) {
   return 'comprehend'
 }
 
-export default function PhrasesLesson({ navigate, progressAPI }) {
+export default function PhrasesLesson({ navigate, progressAPI, level }) {
+  const levelMeta = getLevel('phrases', level)
+  const pool = level ? itemsForLevel('phrases', level) : allPhrases
+  const title = levelMeta ? levelMeta.title : 'All levels'
   const [state, dispatch] = useReducer(reducer, initial)
-  const { progress, recordAnswer, recordSkillRound, recordPhraseResult } = progressAPI
+  const { progress, recordAnswer, recordSkillRound, recordPhraseResult, recordLevelRound } = progressAPI
   const showingFeedback = state.status === 'feedback'
 
   function start() {
-    dispatch({ type: 'boot', questions: buildSession(progress) })
+    dispatch({ type: 'boot', questions: buildSession(progress, pool), pool })
   }
 
   useEffect(() => {
     start()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [level])
 
   function finish(correct, extra = {}) {
     if (state.status !== 'prompt' || state.done) return
@@ -153,7 +159,9 @@ export default function PhrasesLesson({ navigate, progressAPI }) {
       document.activeElement?.blur?.()
       if (willFinish) {
         const score = nextHistory.filter(h => h === 'c').length
-        recordSkillRound('phrases', Math.round((score / state.questions.length) * 100))
+        const pct = Math.round((score / state.questions.length) * 100)
+        recordSkillRound('phrases', pct)
+        if (level) recordLevelRound('phrases', level, pct)
       }
       dispatch({ type: 'next' })
     }, 1400)
@@ -195,7 +203,7 @@ export default function PhrasesLesson({ navigate, progressAPI }) {
       <div className="screen">
         <nav className="nav">
           <button type="button" className="nav-back" onClick={() => navigate('home')}>‹</button>
-          <span className="nav-title">Phrases</span>
+          <span className="nav-title">Phrases · {title}</span>
         </nav>
         <p style={{ color: 'var(--text3)' }}>Loading…</p>
       </div>
@@ -210,7 +218,7 @@ export default function PhrasesLesson({ navigate, progressAPI }) {
     <div className="screen">
       <nav className="nav">
         <button type="button" className="nav-back" onClick={() => navigate('home')}>‹</button>
-        <span className="nav-title">Phrases</span>
+        <span className="nav-title">Phrases · {title}</span>
       </nav>
 
       <div className="pbar">

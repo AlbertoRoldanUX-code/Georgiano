@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
-import { vocabulary, allWords } from '../data/vocabulary'
+import { allWords } from '../data/vocabulary'
 import { alphabet } from '../data/alphabet'
+import { getLevel, itemsForLevel } from '../data/levels'
 import { normalize, normalizeLoose } from '../utils/normalize'
 
 const GEO_LETTERS = alphabet.map(l => l.letter)
@@ -17,11 +18,12 @@ function isCorrect(input, word) {
   return accepted.some(a => a === n) || n === romanLoose
 }
 
-export default function TranslationLesson({ navigate, progressAPI, category }) {
-  const pool = category ? vocabulary[category].words : allWords
-  const catTitle = category ? vocabulary[category].title : 'All'
+export default function TranslationLesson({ navigate, progressAPI, level }) {
+  const levelMeta = getLevel('write', level)
+  const pool = level ? itemsForLevel('write', level) : allWords
+  const title = levelMeta ? levelMeta.title : 'All levels'
 
-  const [questions] = useState(() => shuffle(pool).slice(0, 10))
+  const [questions, setQuestions] = useState(() => shuffle(pool).slice(0, Math.min(10, pool.length)))
   const [idx, setIdx] = useState(0)
   const [input, setInput] = useState('')
   const [status, setStatus] = useState(null)
@@ -30,8 +32,22 @@ export default function TranslationLesson({ navigate, progressAPI, category }) {
   const [done, setDone] = useState(false)
   const timerRef = useRef(null)
 
-  const { recordAnswer, recordSkillRound } = progressAPI
+  const { recordAnswer, recordSkillRound, recordLevelRound } = progressAPI
   const locked = status !== null
+
+  function boot() {
+    setQuestions(shuffle(pool).slice(0, Math.min(10, pool.length)))
+    setIdx(0)
+    setHistory([])
+    setDone(false)
+    setInput('')
+    setStatus(null)
+  }
+
+  useEffect(() => {
+    boot()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [level])
 
   useEffect(() => {
     setShowHint(false)
@@ -49,7 +65,9 @@ export default function TranslationLesson({ navigate, progressAPI, category }) {
     setTimeout(() => {
       if (idx + 1 >= questions.length) {
         const sc = nextHistory.filter(h => h === 'c').length
-        recordSkillRound('write', Math.round((sc / questions.length) * 100))
+        const pct = Math.round((sc / questions.length) * 100)
+        recordSkillRound('write', pct)
+        if (level) recordLevelRound('write', level, pct)
         setDone(true)
       } else {
         setIdx(i => i + 1)
@@ -95,14 +113,26 @@ export default function TranslationLesson({ navigate, progressAPI, category }) {
           </div>
           <h2 className="result-title">Round complete!</h2>
           <div className="result-score">{score}/{questions.length}</div>
-          <div className="result-sub">{catTitle} · {pct}% correct</div>
+          <div className="result-sub">{title} · {pct}% correct</div>
           <div className="result-actions">
-            <button type="button" className="btn btn-primary" onClick={() => { setIdx(0); setHistory([]); setDone(false) }}>
+            <button type="button" className="btn btn-primary" onClick={boot}>
               Again
             </button>
             <button type="button" className="btn btn-ghost" onClick={() => navigate('home')}>Home</button>
           </div>
         </div>
+      </div>
+    )
+  }
+
+  if (!questions.length) {
+    return (
+      <div className="screen">
+        <nav className="nav">
+          <button type="button" className="nav-back" onClick={() => navigate('home')}>‹</button>
+          <span className="nav-title">Write · {title}</span>
+        </nav>
+        <p style={{ color: 'var(--text3)' }}>Loading…</p>
       </div>
     )
   }
@@ -113,7 +143,7 @@ export default function TranslationLesson({ navigate, progressAPI, category }) {
     <div className="screen">
       <nav className="nav">
         <button type="button" className="nav-back" onClick={() => navigate('home')}>‹</button>
-        <span className="nav-title">Write · {catTitle}</span>
+        <span className="nav-title">Write · {title}</span>
       </nav>
 
       <div className="pbar">

@@ -1,5 +1,6 @@
 import { alphabet } from '../data/alphabet'
 import { learningPath } from '../data/vocabulary'
+import { moduleGateReady } from '../data/levels'
 import {
   countRecognitionReady,
   countRecallReady,
@@ -13,14 +14,14 @@ const ALPHA_MIN_QUIZ = 8
 const ALPHA_MIN_RECOGNITION = 18
 const ALPHA_MIN_RECALL = 8
 
-/** Skill → next: one solid round, or steady practice. */
+/** Skill → next: one solid round, or steady practice (decode only). */
 const SKILL_MIN_BEST_PCT = 70
 const SKILL_MIN_CORRECT = 12
 const SKILL_MIN_ACCURACY = 0.65
 
 /**
- * New path: alphabet → decode → listen → words → phrases → write
- * Legacy ids read/speak still resolve for old links.
+ * Path: alphabet → decode → listen → words → phrases → write
+ * Later modules unlock after Level 3 (≥60%) of the previous leveled skill.
  */
 const PREV = {
   alphabet: null,
@@ -29,7 +30,6 @@ const PREV = {
   words: 'listen',
   phrases: 'words',
   write: 'phrases',
-  // Legacy aliases
   read: 'listen',
   speak: 'words',
 }
@@ -56,7 +56,6 @@ function skillStats(progress, id) {
   return progress.skills?.[id] || emptySkill()
 }
 
-/** Legacy path OR new mastery-based readiness. */
 function alphabetReady(progress) {
   const seen = progress.alphabetSeen?.length || 0
   const best = progress.alphabetBestQuiz || 0
@@ -77,37 +76,22 @@ function skillReady(stats) {
 
 function blockReady(id, progress) {
   if (id === 'alphabet') return alphabetReady(progress)
-  if (id === 'words') {
-    // Words unlocks if listen ready OR legacy read skill was already progressing
-    return skillReady(skillStats(progress, 'listen')) || skillReady(skillStats(progress, 'read'))
-  }
-  if (id === 'phrases') {
-    return skillReady(skillStats(progress, 'words'))
-      || skillReady(skillStats(progress, 'speak'))
-      || skillReady(skillStats(progress, 'read'))
-  }
-  if (id === 'write') {
-    return skillReady(skillStats(progress, 'phrases'))
-      || skillReady(skillStats(progress, 'speak'))
-      || skillReady(skillStats(progress, 'write'))
+  if (id === 'decode') return skillReady(skillStats(progress, 'decode'))
+  // Leveled modules: clear Level 3 of that skill
+  if (id === 'listen' || id === 'words' || id === 'phrases') {
+    return moduleGateReady(id, progress, 3)
   }
   return skillReady(skillStats(progress, id))
 }
 
-/**
- * Grandfather: if Listen was already unlocked under the old path
- * (alphabet ready + no decode skill yet), keep Listen open while Decode is new.
- */
 function grandfatherListen(progress) {
   const decode = skillStats(progress, 'decode')
   const neverTriedDecode = !decode.attempts && !decode.bestPct
   return neverTriedDecode && alphabetReady(progress)
 }
 
-/** First step is always open; each later step needs the previous block cleared. */
 export function isPathUnlocked(id, progress) {
   if (id === 'listen' && grandfatherListen(progress)) return true
-  // Legacy screens
   if (id === 'read') return isPathUnlocked('words', progress)
   if (id === 'speak') return isPathUnlocked('phrases', progress)
 
@@ -115,11 +99,7 @@ export function isPathUnlocked(id, progress) {
   if (!prev) return true
   if (prev === 'alphabet') return alphabetReady(progress)
   if (prev === 'decode') return blockReady('decode', progress) || grandfatherListen(progress)
-  if (prev === 'listen') {
-    return blockReady('listen', progress) || skillReady(skillStats(progress, 'read'))
-  }
-  if (prev === 'words') return blockReady('words', progress)
-  if (prev === 'phrases') return blockReady('phrases', progress)
+  // words needs listen L3; phrases needs words L3; write needs phrases L3
   return blockReady(prev, progress)
 }
 
@@ -148,16 +128,19 @@ export function unlockHint(id, progress) {
       if (best < ALPHA_MIN_QUIZ) {
         missing.push(`Score ≥${ALPHA_MIN_QUIZ}/12 in Alphabet practice (best ${best}/12)`)
       }
-      if (recognized < ALPHA_MIN_RECOGNITION) {
-        missing.push(`Or master recognition for ${ALPHA_MIN_RECOGNITION} letters (${recognized} now)`)
-      }
-      if (recalled < ALPHA_MIN_RECALL) {
-        missing.push(`And recall ${ALPHA_MIN_RECALL} letters (${recalled} now)`)
-      }
     }
+    return { why: `Complete ${prevTitle} first`, missing }
+  }
+
+  if (prev === 'listen' || prev === 'words' || prev === 'phrases') {
+    const bestKey =
+      prev === 'listen' ? 'listenLevelBest'
+      : prev === 'words' ? 'wordsLevelBest'
+      : 'phrasesLevelBest'
+    const best = progress[bestKey]?.[3] || progress[bestKey]?.['3'] || 0
     return {
       why: `Complete ${prevTitle} first`,
-      missing,
+      missing: [`Score ≥60% on ${prevTitle} Level 3 (best ${best}%)`],
     }
   }
 

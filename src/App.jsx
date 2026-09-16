@@ -44,13 +44,13 @@ export default function App() {
     return <ListenLesson navigate={navigate} progressAPI={progressAPI} level={screen.level} />
 
   if (screen.view === 'words')
-    return <WordsLesson navigate={navigate} progressAPI={progressAPI} category={screen.category} />
+    return <WordsLesson navigate={navigate} progressAPI={progressAPI} level={screen.level} />
 
   if (screen.view === 'phrases')
-    return <PhrasesLesson navigate={navigate} progressAPI={progressAPI} />
+    return <PhrasesLesson navigate={navigate} progressAPI={progressAPI} level={screen.level} />
 
   if (screen.view === 'write')
-    return <TranslationLesson navigate={navigate} progressAPI={progressAPI} category={screen.category} />
+    return <TranslationLesson navigate={navigate} progressAPI={progressAPI} level={screen.level} />
 
   // Legacy routes
   if (screen.view === 'read')
@@ -60,7 +60,7 @@ export default function App() {
     return <SkillLesson navigate={navigate} progressAPI={progressAPI} category={screen.category} mode="speak" />
 
   if (screen.view === 'translation')
-    return <TranslationLesson navigate={navigate} progressAPI={progressAPI} category={screen.category} />
+    return <TranslationLesson navigate={navigate} progressAPI={progressAPI} level={screen.level} />
 
   return <Home navigate={navigate} progress={progressAPI.progress} />
 }

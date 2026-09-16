@@ -135,7 +135,7 @@ export default function ListenLesson({ navigate, progressAPI, level }) {
     progress,
     recordAnswer,
     recordSkillRound,
-    recordListenLevelRound,
+    recordLevelRound,
     recordWordResult,
     recordLetterResult,
   } = progressAPI
@@ -180,7 +180,7 @@ export default function ListenLesson({ navigate, progressAPI, level }) {
         const score = nextHistory.filter(h => h === 'c').length
         const pct = Math.round((score / state.questions.length) * 100)
         recordSkillRound('listen', pct)
-        if (level) recordListenLevelRound(level, pct)
+        if (level) recordLevelRound('listen', level, pct)
       }
       dispatch({ type: 'next' })
     }, 1000)

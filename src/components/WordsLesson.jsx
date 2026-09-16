@@ -1,6 +1,7 @@
 import { useEffect, useReducer } from 'react'
-import { vocabulary, allWords } from '../data/vocabulary'
+import { allWords } from '../data/vocabulary'
 import { alphabet } from '../data/alphabet'
+import { getLevel, itemsForLevel } from '../data/levels'
 import { playCorrectSound, playWrongSound, speakWord } from '../utils/audio'
 import { normalize, normalizeLoose } from '../utils/normalize'
 import { mcqOptions, pickSpacedItems } from '../utils/sessionPick'
@@ -125,11 +126,12 @@ function skillFor(kind) {
   return 'reading'
 }
 
-export default function WordsLesson({ navigate, progressAPI, category }) {
-  const pool = category ? vocabulary[category].words : allWords
-  const catTitle = category ? vocabulary[category].title : 'All'
+export default function WordsLesson({ navigate, progressAPI, level }) {
+  const levelMeta = getLevel('words', level)
+  const pool = level ? itemsForLevel('words', level) : allWords
+  const title = levelMeta ? levelMeta.title : 'All levels'
   const [state, dispatch] = useReducer(reducer, initial)
-  const { progress, recordAnswer, recordSkillRound, recordWordResult } = progressAPI
+  const { progress, recordAnswer, recordSkillRound, recordWordResult, recordLevelRound } = progressAPI
   const showingFeedback = state.status === 'feedback'
 
   function start() {
@@ -140,7 +142,7 @@ export default function WordsLesson({ navigate, progressAPI, category }) {
   useEffect(() => {
     start()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [category])
+  }, [level])
 
   function finish(correct, extra = {}) {
     if (state.status !== 'prompt' || state.done) return
@@ -161,9 +163,7 @@ export default function WordsLesson({ navigate, progressAPI, category }) {
         const score = nextHistory.filter(h => h === 'c').length
         const pct = Math.round((score / state.questions.length) * 100)
         recordSkillRound('words', pct)
-        // Keep legacy skill gates progressing for users mid-path
-        recordSkillRound('read', pct)
-        recordSkillRound('speak', pct)
+        if (level) recordLevelRound('words', level, pct)
       }
       dispatch({ type: 'next' })
     }, 1000)
@@ -195,7 +195,7 @@ export default function WordsLesson({ navigate, progressAPI, category }) {
           <div className="result-emoji">{pct >= 90 ? '🏆' : pct >= 70 ? '⭐' : '📚'}</div>
           <h2 className="result-title">Words round done</h2>
           <div className="result-score">{score}/{state.questions.length}</div>
-          <div className="result-sub">Mixed reading · listening · production · {pct}%</div>
+          <div className="result-sub">{title} · mixed practice · {pct}%</div>
           <div className="result-actions">
             <button type="button" className="btn btn-primary" onClick={start}>Again</button>
             <button type="button" className="btn btn-ghost" onClick={() => navigate('home')}>Home</button>
@@ -210,7 +210,7 @@ export default function WordsLesson({ navigate, progressAPI, category }) {
       <div className="screen">
         <nav className="nav">
           <button type="button" className="nav-back" onClick={() => navigate('home')}>‹</button>
-          <span className="nav-title">Words · {catTitle}</span>
+          <span className="nav-title">Words · {title}</span>
         </nav>
         <p style={{ color: 'var(--text3)' }}>Loading…</p>
       </div>
@@ -225,7 +225,7 @@ export default function WordsLesson({ navigate, progressAPI, category }) {
     <div className="screen">
       <nav className="nav">
         <button type="button" className="nav-back" onClick={() => navigate('home')}>‹</button>
-        <span className="nav-title">Words · {catTitle}</span>
+        <span className="nav-title">Words · {title}</span>
       </nav>
 
       <div className="pbar">
