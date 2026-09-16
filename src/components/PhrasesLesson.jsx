@@ -1,6 +1,6 @@
 import { useEffect, useReducer } from 'react'
 import { phrases } from '../data/phrases'
-import { playCorrectSound, playWrongSound, speakWord } from '../utils/audio'
+import { playCorrectSound, playWrongSound, speakPhrase } from '../utils/audio'
 import { shuffle } from '../utils/srs'
 import { mcqOptions, pickSpacedItems } from '../utils/sessionPick'
 
@@ -228,24 +228,23 @@ export default function PhrasesLesson({ navigate, progressAPI }) {
       </div>
 
       <p className="practice-kind">{kindLabel(q.kind)}</p>
-      <div className="phrase-pattern">{ph.pattern}</div>
 
       <div className="practice-prompt" key={`pp-${state.step}`}>
         {q.kind === 'listen_meaning' ? (
-          <button type="button" className="sound-btn sound-btn-lg" onClick={() => speakWord(ph.georgian)}>
+          <button type="button" className="sound-btn sound-btn-lg" onClick={() => speakPhrase(ph.georgian)}>
             ▶ Listen
           </button>
         ) : q.kind === 'order' ? (
           <>
             <div className="q-geo" style={{ fontFamily: 'inherit', fontSize: '1.5rem' }}>{ph.english}</div>
-            <button type="button" className="sound-btn" style={{ marginTop: 10 }} onClick={() => speakWord(ph.georgian)}>
+            <button type="button" className="sound-btn" style={{ marginTop: 10 }} onClick={() => speakPhrase(ph.georgian)}>
               ▶ Hear model
             </button>
           </>
         ) : (
           <>
             <div className="q-geo">{ph.georgian}</div>
-            <button type="button" className="sound-btn" onClick={() => speakWord(ph.georgian)}>▶ Listen</button>
+            <button type="button" className="sound-btn" onClick={() => speakPhrase(ph.georgian)}>▶ Listen</button>
           </>
         )}
       </div>
