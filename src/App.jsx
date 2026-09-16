@@ -4,6 +4,7 @@ import { learningPath } from './data/vocabulary'
 import { isPathUnlocked } from './utils/pathUnlock'
 import Home from './components/Home'
 import AlphabetLesson from './components/AlphabetLesson'
+import DecodeLesson from './components/DecodeLesson'
 import SkillLesson from './components/SkillLesson'
 import TranslationLesson from './components/TranslationLesson'
 
@@ -32,6 +33,9 @@ export default function App() {
 
   if (screen.view === 'alphabet')
     return <AlphabetLesson navigate={navigate} progressAPI={progressAPI} />
+
+  if (screen.view === 'decode')
+    return <DecodeLesson navigate={navigate} progressAPI={progressAPI} />
 
   if (screen.view === 'listen')
     return <SkillLesson navigate={navigate} progressAPI={progressAPI} category={screen.category} mode="listen" />

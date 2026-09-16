@@ -24,7 +24,7 @@ export default function Home({ navigate, progress }) {
       <div className="home-header">
         <div className="home-geo">გამარჯობა!</div>
         <h1 className="home-title">Learn Georgian</h1>
-        <p className="home-sub">Follow the path: sounds → words → produce</p>
+        <p className="home-sub">Alphabet → decode → listen → speak</p>
       </div>
 
       <div className="stats-row">
@@ -45,7 +45,7 @@ export default function Home({ navigate, progress }) {
       <div className="path-label">Your learning path</div>
       <div className="module-list">
         {learningPath.map(item => {
-          const needsCategory = item.view !== 'alphabet'
+          const needsCategory = item.view !== 'alphabet' && item.view !== 'decode'
           const unlocked = isPathUnlocked(item.id, progress)
           const isOpen = unlocked && openSkill === item.id
           const hint = unlockHint(item.id, progress)
@@ -60,6 +60,7 @@ export default function Home({ navigate, progress }) {
                 onClick={() => {
                   if (!unlocked) return
                   if (item.view === 'alphabet') navigate('alphabet')
+                  else if (item.view === 'decode') navigate('decode')
                   else toggleSkill(item.id)
                 }}
               >

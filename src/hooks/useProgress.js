@@ -1,5 +1,10 @@
 import { useState, useEffect } from 'react'
 import { emptySkills } from '../utils/pathUnlock'
+import {
+  applyResult,
+  emptyLetterEntry,
+  emptyWordEntry,
+} from '../utils/srs'
 
 const KEY = 'georgiano_v1'
 
@@ -12,6 +17,8 @@ function defaults() {
     totalCorrect: 0,
     totalAttempts: 0,
     alphabetBestQuiz: 0,
+    letters: {},
+    words: {},
     skills: emptySkills(),
   }
 }
@@ -19,12 +26,23 @@ function defaults() {
 function migrate(raw) {
   const base = defaults()
   if (!raw || typeof raw !== 'object') return base
+
+  const letters = { ...(raw.letters || {}) }
+  // Seed recognition exposure from legacy alphabetSeen (does not mark mastery).
+  if (Array.isArray(raw.alphabetSeen)) {
+    for (const ch of raw.alphabetSeen) {
+      if (!letters[ch]) letters[ch] = emptyLetterEntry()
+    }
+  }
+
   return {
     ...base,
     ...raw,
     alphabetSeen: Array.isArray(raw.alphabetSeen) ? raw.alphabetSeen : [],
     learnedWords: Array.isArray(raw.learnedWords) ? raw.learnedWords : [],
     alphabetBestQuiz: Number(raw.alphabetBestQuiz) || 0,
+    letters,
+    words: raw.words && typeof raw.words === 'object' ? raw.words : {},
     skills: {
       ...base.skills,
       ...(raw.skills || {}),
@@ -47,6 +65,15 @@ function yesterday() {
   return d.toDateString()
 }
 
+function bumpStreak(p) {
+  const today = new Date().toDateString()
+  const streak =
+    p.lastDate === today ? p.streak
+    : p.lastDate === yesterday() ? p.streak + 1
+    : 1
+  return { streak, lastDate: today }
+}
+
 export function useProgress() {
   const [progress, setProgress] = useState(load)
 
@@ -56,20 +83,15 @@ export function useProgress() {
 
   function recordAnswer(wordId, correct, skill) {
     setProgress(p => {
-      const today = new Date().toDateString()
-      const streak =
-        p.lastDate === today ? p.streak
-        : p.lastDate === yesterday() ? p.streak + 1
-        : 1
-
+      const { streak, lastDate } = bumpStreak(p)
       const next = {
         ...p,
         streak,
-        lastDate: today,
+        lastDate,
         totalCorrect: p.totalCorrect + (correct ? 1 : 0),
         totalAttempts: p.totalAttempts + 1,
         learnedWords:
-          correct && !p.learnedWords.includes(wordId)
+          correct && wordId && !p.learnedWords.includes(wordId)
             ? [...p.learnedWords, wordId]
             : p.learnedWords,
       }
@@ -106,12 +128,19 @@ export function useProgress() {
   }
 
   function recordAlphabetSeen(letter) {
-    setProgress(p => ({
-      ...p,
-      alphabetSeen: p.alphabetSeen.includes(letter)
-        ? p.alphabetSeen
-        : [...p.alphabetSeen, letter],
-    }))
+    setProgress(p => {
+      const entry = p.letters?.[letter] || emptyLetterEntry()
+      return {
+        ...p,
+        alphabetSeen: p.alphabetSeen.includes(letter)
+          ? p.alphabetSeen
+          : [...p.alphabetSeen, letter],
+        letters: {
+          ...p.letters,
+          [letter]: entry,
+        },
+      }
+    })
   }
 
   function recordAlphabetQuiz(correct) {
@@ -119,6 +148,72 @@ export function useProgress() {
       ...p,
       alphabetBestQuiz: Math.max(p.alphabetBestQuiz || 0, correct),
     }))
+  }
+
+  /**
+   * Record a letter drill result.
+   * @param {'recognition'|'recall'} skill
+   * @param {string|null} confusedWith — Georgian letter the user picked wrongly
+   */
+  function recordLetterResult(letter, skill, correct, confusedWith = null) {
+    setProgress(p => {
+      const { streak, lastDate } = bumpStreak(p)
+      const prev = p.letters?.[letter] || emptyLetterEntry()
+      const card = applyResult(prev[skill] || emptyLetterEntry()[skill], correct)
+      const confusions = { ...(prev.confusions || {}) }
+      if (!correct && confusedWith) {
+        confusions[confusedWith] = (confusions[confusedWith] || 0) + 1
+      }
+
+      const nextLetters = {
+        ...p.letters,
+        [letter]: {
+          ...prev,
+          [skill]: card,
+          confusions,
+        },
+      }
+
+      return {
+        ...p,
+        streak,
+        lastDate,
+        totalCorrect: p.totalCorrect + (correct ? 1 : 0),
+        totalAttempts: p.totalAttempts + 1,
+        alphabetSeen: p.alphabetSeen.includes(letter)
+          ? p.alphabetSeen
+          : [...p.alphabetSeen, letter],
+        letters: nextLetters,
+      }
+    })
+  }
+
+  /** @param {'decode'|'listening'|'reading'|'meaning'} skill */
+  function recordWordResult(wordId, skill, correct) {
+    setProgress(p => {
+      const { streak, lastDate } = bumpStreak(p)
+      const prev = p.words?.[wordId] || emptyWordEntry()
+      const card = applyResult(prev[skill] || emptyWordEntry()[skill], correct)
+
+      return {
+        ...p,
+        streak,
+        lastDate,
+        totalCorrect: p.totalCorrect + (correct ? 1 : 0),
+        totalAttempts: p.totalAttempts + 1,
+        learnedWords:
+          correct && !p.learnedWords.includes(wordId)
+            ? [...p.learnedWords, wordId]
+            : p.learnedWords,
+        words: {
+          ...p.words,
+          [wordId]: {
+            ...prev,
+            [skill]: card,
+          },
+        },
+      }
+    })
   }
 
   function resetProgress() {
@@ -131,6 +226,8 @@ export function useProgress() {
     recordSkillRound,
     recordAlphabetSeen,
     recordAlphabetQuiz,
+    recordLetterResult,
+    recordWordResult,
     resetProgress,
   }
 }

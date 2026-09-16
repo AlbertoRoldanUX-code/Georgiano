@@ -1,28 +1,35 @@
-import { useReducer, useState } from 'react'
+import { useEffect, useReducer, useRef, useState } from 'react'
 import { alphabet } from '../data/alphabet'
 import { playCorrectSound, playWrongSound, speakWord } from '../utils/audio'
+import {
+  countRecognitionReady,
+  countRecallReady,
+  matchesRoman,
+  pickAlphabetSession,
+  recognitionOptions,
+  reverseOptions,
+} from '../utils/srs'
 
 const SESSION_SIZE = 12
-
-function shuffle(arr) {
-  return [...arr].sort(() => Math.random() - 0.5)
-}
-
-function getOptions(correct, all) {
-  const wrong = shuffle(all.filter(l => l.letter !== correct.letter)).slice(0, 3)
-  return shuffle([correct, ...wrong])
-}
 
 const initial = {
   active: false,
   done: false,
-  status: 'prompt', // 'prompt' | 'feedback' — colors ONLY while 'feedback'
+  status: 'prompt',
   questions: [],
   idx: 0,
   opts: [],
   picked: null,
+  typed: '',
   score: { c: 0, w: 0 },
-  step: 0, // increments every question; used as React remount key
+  step: 0,
+}
+
+function optsFor(q) {
+  if (!q) return []
+  if (q.kind === 'recognize') return recognitionOptions(q.letter, alphabet)
+  if (q.kind === 'reverse') return reverseOptions(q.letter, alphabet)
+  return []
 }
 
 function reducer(state, action) {
@@ -35,40 +42,42 @@ function reducer(state, action) {
         status: 'prompt',
         questions,
         idx: 0,
-        opts: getOptions(questions[0], alphabet),
+        opts: optsFor(questions[0]),
         picked: null,
+        typed: '',
         score: { c: 0, w: 0 },
         step: 1,
       }
     }
     case 'answer': {
       if (state.status !== 'prompt' || state.done) return state
-      const q = state.questions[state.idx]
-      const correct = action.picked === q.roman
       return {
         ...state,
         status: 'feedback',
         picked: action.picked,
+        typed: action.typed ?? state.typed,
         score: {
-          c: state.score.c + (correct ? 1 : 0),
-          w: state.score.w + (correct ? 0 : 1),
+          c: state.score.c + (action.correct ? 1 : 0),
+          w: state.score.w + (action.correct ? 0 : 1),
         },
       }
     }
+    case 'type':
+      if (state.status !== 'prompt') return state
+      return { ...state, typed: action.value }
     case 'next': {
       const next = state.idx + 1
       if (next >= state.questions.length) {
-        return { ...state, done: true, status: 'prompt', picked: null }
+        return { ...state, done: true, status: 'prompt', picked: null, typed: '' }
       }
       return {
-        active: true,
+        ...state,
         done: false,
         status: 'prompt',
-        questions: state.questions,
         idx: next,
-        opts: getOptions(state.questions[next], alphabet),
+        opts: optsFor(state.questions[next]),
         picked: null,
-        score: state.score,
+        typed: '',
         step: state.step + 1,
       }
     }
@@ -84,11 +93,7 @@ function PracticeExampleReveal({ example, exMeaning }) {
 
   if (!open) {
     return (
-      <button
-        type="button"
-        className="sound-btn"
-        onClick={() => setOpen(true)}
-      >
+      <button type="button" className="sound-btn" onClick={() => setOpen(true)}>
         See example
       </button>
     )
@@ -112,17 +117,45 @@ function PracticeExampleReveal({ example, exMeaning }) {
   )
 }
 
+function kindLabel(kind) {
+  if (kind === 'recall') return 'Type the romanization'
+  if (kind === 'reverse') return 'Which letter is this?'
+  return 'Pick the romanization'
+}
+
 export default function AlphabetLesson({ navigate, progressAPI }) {
   const [tab, setTab] = useState('browse')
   const [selected, setSelected] = useState(null)
   const [state, dispatch] = useReducer(reducer, initial)
+  const detailRef = useRef(null)
+  const inputRef = useRef(null)
 
-  const { progress, recordAlphabetSeen, recordAlphabetQuiz } = progressAPI
+  const {
+    progress,
+    recordAlphabetSeen,
+    recordAlphabetQuiz,
+    recordLetterResult,
+  } = progressAPI
   const total = state.questions.length || SESSION_SIZE
   const showingFeedback = state.status === 'feedback'
+  const recognized = countRecognitionReady(progress)
+  const recalled = countRecallReady(progress)
+
+  useEffect(() => {
+    if (!selected) return
+    detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [selected])
+
+  useEffect(() => {
+    if (tab !== 'practice' || !state.active) return
+    const q = state.questions[state.idx]
+    if (q?.kind === 'recall' && state.status === 'prompt') {
+      inputRef.current?.focus()
+    }
+  }, [tab, state.active, state.idx, state.status, state.questions])
 
   function startPractice() {
-    const questions = shuffle(alphabet).slice(0, SESSION_SIZE)
+    const questions = pickAlphabetSession(progress, SESSION_SIZE)
     dispatch({ type: 'boot', questions })
     setTab('practice')
   }
@@ -132,13 +165,15 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
     recordAlphabetSeen(letter.letter)
   }
 
-  function handlePick(opt) {
+  function finishItem(correct, { picked = null, typed = '', confusedWith = null } = {}) {
     if (state.status !== 'prompt' || state.done) return
     const q = state.questions[state.idx]
-    const correct = opt.roman === q.roman
+    const skill = q.kind === 'recall' ? 'recall' : 'recognition'
     const finalCorrect = state.score.c + (correct ? 1 : 0)
     const willFinish = state.idx + 1 >= total
-    dispatch({ type: 'answer', picked: opt.roman })
+
+    dispatch({ type: 'answer', correct, picked, typed })
+    recordLetterResult(q.letter.letter, skill, correct, confusedWith)
     if (correct) playCorrectSound()
     else playWrongSound()
 
@@ -149,6 +184,35 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
     }, 900)
   }
 
+  function handlePick(opt) {
+    const q = state.questions[state.idx]
+    if (q.kind === 'recognize') {
+      const correct = opt.roman === q.letter.roman
+      finishItem(correct, {
+        picked: opt.roman,
+        confusedWith: correct ? null : opt.letter,
+      })
+      return
+    }
+    if (q.kind === 'reverse') {
+      const correct = opt.letter === q.letter.letter
+      finishItem(correct, {
+        picked: opt.letter,
+        confusedWith: correct ? null : opt.letter,
+      })
+    }
+  }
+
+  function handleRecallSubmit(e) {
+    e?.preventDefault?.()
+    if (state.status !== 'prompt') return
+    const q = state.questions[state.idx]
+    const typed = state.typed
+    if (!typed.trim()) return
+    const correct = matchesRoman(typed, q.letter)
+    finishItem(correct, { typed })
+  }
+
   if (tab === 'practice' && state.done) {
     return (
       <div className="screen">
@@ -157,9 +221,9 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
           <h2 className="result-title">Complete!</h2>
           <div className="result-score">{state.score.c}/{total}</div>
           <div className="result-sub">
-            {state.score.c >= total * 0.9 ? 'Excellent!'
-              : state.score.c >= total * 0.7 ? 'Nice work. Keep practicing!'
-              : 'Keep reviewing the letters.'}
+            {state.score.c >= total * 0.9 ? 'Excellent — letters are sticking.'
+              : state.score.c >= total * 0.7 ? 'Nice work. Keep practicing weak letters.'
+              : 'Review again — focus on letters you missed.'}
           </div>
           <div className="result-actions">
             <button type="button" className="btn btn-primary" onClick={startPractice}>Another round</button>
@@ -178,6 +242,8 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
 
   if (tab === 'practice' && state.active && state.questions.length > 0) {
     const q = state.questions[state.idx]
+    const letter = q.letter
+
     return (
       <div className="screen">
         <nav className="nav">
@@ -195,7 +261,7 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
           <div className="pbar-fill" style={{ width: `${(state.idx / total) * 100}%` }} />
         </div>
 
-        <div className="quiz-score" style={{ marginBottom: 24 }}>
+        <div className="quiz-score" style={{ marginBottom: 16 }}>
           <span style={{ fontSize: '0.8rem', color: 'var(--text3)', marginRight: 4 }}>
             {state.idx + 1}/{total}
           </span>
@@ -203,35 +269,78 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
           <span style={{ fontSize: '0.8rem', color: 'var(--error)', fontWeight: 600, marginLeft: 8 }}>✗ {state.score.w}</span>
         </div>
 
+        <p className="practice-kind">{kindLabel(q.kind)}</p>
+
         <div className="practice-prompt" key={`q-${state.step}`}>
-          <div className="practice-letter">{q.letter}</div>
-          <PracticeExampleReveal
-            example={q.example}
-            exMeaning={q.exMeaning}
-          />
+          {q.kind === 'reverse' ? (
+            <div className="practice-letter practice-roman-prompt">{letter.roman}</div>
+          ) : (
+            <div className="practice-letter">{letter.letter}</div>
+          )}
+          {q.kind !== 'reverse' && (
+            <PracticeExampleReveal example={letter.example} exMeaning={letter.exMeaning} />
+          )}
         </div>
 
-        <div className="options-stack" key={`opts-${state.step}`}>
-          {state.opts.map(opt => {
-            let cls = 'option-row'
-            // Colors exist ONLY during feedback status for this step
-            if (showingFeedback) {
-              if (opt.roman === q.roman) cls += ' is-correct'
-              else if (opt.roman === state.picked) cls += ' is-wrong'
-            }
-            return (
-              <button
-                key={`${state.step}-${opt.roman}`}
-                type="button"
-                className={cls}
-                onClick={() => handlePick(opt)}
-                disabled={showingFeedback}
-              >
-                {opt.roman}
-              </button>
-            )
-          })}
-        </div>
+        {q.kind === 'recall' ? (
+          <form className="recall-form" onSubmit={handleRecallSubmit} key={`recall-${state.step}`}>
+            <input
+              ref={inputRef}
+              className={`trans-input${showingFeedback ? (matchesRoman(state.typed, letter) ? ' correct' : ' wrong') : ''}`}
+              value={state.typed}
+              onChange={e => dispatch({ type: 'type', value: e.target.value })}
+              placeholder="e.g. a, k', sh…"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
+              disabled={showingFeedback}
+              aria-label="Romanization"
+            />
+            {showingFeedback && (
+              <div className="recall-answer">
+                Answer: <strong>{letter.roman}</strong>
+              </div>
+            )}
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={showingFeedback || !state.typed.trim()}
+              style={{ width: '100%', marginTop: 12 }}
+            >
+              Check
+            </button>
+          </form>
+        ) : (
+          <div className="options-stack" key={`opts-${state.step}`}>
+            {state.opts.map(opt => {
+              let cls = 'option-row'
+              if (showingFeedback) {
+                if (q.kind === 'recognize') {
+                  if (opt.roman === letter.roman) cls += ' is-correct'
+                  else if (opt.roman === state.picked) cls += ' is-wrong'
+                } else {
+                  if (opt.letter === letter.letter) cls += ' is-correct'
+                  else if (opt.letter === state.picked) cls += ' is-wrong'
+                }
+              }
+              return (
+                <button
+                  key={`${state.step}-${opt.letter}`}
+                  type="button"
+                  className={cls}
+                  onClick={() => handlePick(opt)}
+                  disabled={showingFeedback}
+                >
+                  {q.kind === 'reverse' ? (
+                    <span className="option-geo">{opt.letter}</span>
+                  ) : (
+                    opt.roman
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        )}
       </div>
     )
   }
@@ -242,13 +351,18 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
         <button type="button" className="nav-back" onClick={() => navigate('home')}>‹</button>
         <span className="nav-title">Alphabet</span>
         <button type="button" className="nav-action" onClick={startPractice}>
-          Quiz
+          Practice
         </button>
       </nav>
 
-      <p style={{ color: 'var(--text3)', fontSize: '0.8125rem', marginBottom: 14, lineHeight: 1.4 }}>
-        Tap any letter to see its sound and an example word.
+      <p style={{ color: 'var(--text3)', fontSize: '0.8125rem', marginBottom: 10, lineHeight: 1.4 }}>
+        Tap a letter to study it. Practice mixes recognition and typing — romanization is only a bridge.
       </p>
+
+      <div className="alpha-mastery">
+        <span>{recognized}/{alphabet.length} recognized</span>
+        <span>{recalled}/{alphabet.length} recall</span>
+      </div>
 
       <div className="letter-grid">
         {alphabet.map(l => (
@@ -265,7 +379,7 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
       </div>
 
       {selected && (
-        <div className="letter-detail">
+        <div className="letter-detail" ref={detailRef}>
           <div className="letter-detail-big">{selected.letter}</div>
           <div className="letter-detail-meta">
             <div className="letter-detail-name">{selected.name}</div>

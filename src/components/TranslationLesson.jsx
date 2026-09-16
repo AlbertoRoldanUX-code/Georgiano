@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { vocabulary, allWords } from '../data/vocabulary'
 import { alphabet } from '../data/alphabet'
+import { normalize, normalizeLoose } from '../utils/normalize'
 
 const GEO_LETTERS = alphabet.map(l => l.letter)
 
@@ -8,21 +9,11 @@ function shuffle(arr) {
   return [...arr].sort(() => Math.random() - 0.5)
 }
 
-function normalize(s) {
-  return s
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/['ʼʹ]/g, "'")
-    .replace(/\s+/g, ' ')
-    .trim()
-}
-
 function isCorrect(input, word) {
   const n = normalize(input)
   if (!n) return false
   const accepted = [word.georgian, word.roman].map(normalize)
-  const romanLoose = normalize(word.roman.replace(/'/g, ''))
+  const romanLoose = normalizeLoose(word.roman)
   return accepted.some(a => a === n) || n === romanLoose
 }
 
