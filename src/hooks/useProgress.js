@@ -26,6 +26,7 @@ function defaults() {
     wordsLevelBest: {},
     phrasesLevelBest: {},
     writeLevelBest: {},
+    unitLevelBest: {},
     skills: emptySkills(),
   }
 }
@@ -60,11 +61,39 @@ function migrate(raw) {
     wordsLevelBest: asBestMap(raw.wordsLevelBest),
     phrasesLevelBest: asBestMap(raw.phrasesLevelBest),
     writeLevelBest: asBestMap(raw.writeLevelBest),
+    unitLevelBest: migrateUnitBest(raw),
     skills: {
       ...base.skills,
       ...(raw.skills || {}),
     },
   }
+}
+
+/** Prefer unitLevelBest; otherwise lift best scores from old skill-separated maps. */
+function migrateUnitBest(raw) {
+  const existing = asBestMap(raw.unitLevelBest)
+  if (Object.keys(existing).length) return existing
+  const out = {}
+  const sources = [
+    asBestMap(raw.decodeLevelBest),
+    asBestMap(raw.listenLevelBest),
+    asBestMap(raw.wordsLevelBest),
+    asBestMap(raw.writeLevelBest),
+  ]
+  for (const map of sources) {
+    for (const [k, v] of Object.entries(map)) {
+      const n = Number(v) || 0
+      out[k] = Math.max(out[k] || 0, n)
+    }
+  }
+  // Phrase levels shift after 5 word units
+  const phrases = asBestMap(raw.phrasesLevelBest)
+  for (const [k, v] of Object.entries(phrases)) {
+    const id = String(Number(k) + 5)
+    const n = Number(v) || 0
+    out[id] = Math.max(out[id] || 0, n)
+  }
+  return out
 }
 
 function load() {
@@ -151,7 +180,8 @@ export function useProgress() {
   function recordLevelRound(skill, levelId, pct) {
     if (!skill || !levelId) return
     const field =
-      skill === 'decode' ? 'decodeLevelBest'
+      skill === 'unit' ? 'unitLevelBest'
+      : skill === 'decode' ? 'decodeLevelBest'
       : skill === 'listen' ? 'listenLevelBest'
       : skill === 'words' ? 'wordsLevelBest'
       : skill === 'phrases' ? 'phrasesLevelBest'

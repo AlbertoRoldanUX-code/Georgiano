@@ -173,7 +173,7 @@ export const vocabulary = {
 
 export const allWords = Object.values(vocabulary).flatMap(c => c.words)
 
-/** Learning path: alphabet → decode → listen → words → phrases → write */
+/** Learning path: alphabet → Level 1…N (each mixes listen/read/write/talk). */
 export const learningPath = [
   {
     id: 'alphabet',
@@ -184,43 +184,11 @@ export const learningPath = [
     view: 'alphabet',
   },
   {
-    id: 'decode',
+    id: 'unit',
     step: 2,
-    title: 'Word Decode',
-    desc: 'Learn words, then listen · read · write · speak',
-    skill: 'Teach & practice',
-    view: 'decode',
-  },
-  {
-    id: 'listen',
-    step: 3,
-    title: 'Listen',
-    desc: 'Letters & words by ear, plus dictation',
-    skill: 'Listening',
-    view: 'listen',
-  },
-  {
-    id: 'words',
-    step: 4,
-    title: 'Words',
-    desc: 'See, hear, understand, and produce',
+    title: 'Levels',
+    desc: 'Listen · read · write · talk — difficulty rises each level',
     skill: 'Mixed practice',
-    view: 'words',
-  },
-  {
-    id: 'phrases',
-    step: 5,
-    title: 'Phrases',
-    desc: 'Useful patterns through examples',
-    skill: 'Production',
-    view: 'phrases',
-  },
-  {
-    id: 'write',
-    step: 6,
-    title: 'Write',
-    desc: 'Type Georgian from English',
-    skill: 'Writing',
-    view: 'write',
+    view: 'unit',
   },
 ]
