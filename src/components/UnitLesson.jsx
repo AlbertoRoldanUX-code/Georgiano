@@ -1,14 +1,14 @@
 import { useEffect, useReducer, useRef } from 'react'
 import { alphabet } from '../data/alphabet'
 import { getUnit } from '../data/units'
-import { playCorrectSound, playWrongSound, speakPhrase, speakWord } from '../utils/audio'
-import { normalize, normalizeLoose } from '../utils/normalize'
-import { mcqOptions, pickSpacedItems } from '../utils/sessionPick'
+import { playCorrectSound, playWrongSound, speakPhrase, speakWord, stopAudio } from '../utils/audio'
+import { normalize } from '../utils/normalize'
+import { mcqOptions } from '../utils/sessionPick'
+import WordImage from './WordImage'
 
 const TEACH_SIZE = 4
-const PRACTICE_SIZE = 10
 const GEO_LETTERS = alphabet.map(l => l.letter)
-const AUTO_ADVANCE_MS = 900
+const AUTO_ADVANCE_MS = 850
 
 function shuffle(arr) {
   return [...arr].sort(() => Math.random() - 0.5)
@@ -18,50 +18,6 @@ function matchesGeorgian(input, word) {
   const n = normalize(input)
   if (!n) return false
   return n === normalize(word.georgian)
-}
-
-/** Every level mixes listen / read / write / talk; harder levels add writing & listen-pick. */
-function kindsForUnit(unit) {
-  const id = Number(unit?.id) || 1
-  if (unit?.kind === 'phrases') {
-    if (id <= 6) return ['read_meaning', 'listen_meaning', 'speak_pick', 'phrase_order']
-    return ['read_meaning', 'listen_meaning', 'listen_pick', 'speak_pick', 'write_geo', 'phrase_order']
-  }
-  if /** Practice only words that were just taught, grouped by skill type. */
-function buildSession(progress, pool, unit) {
-  const unitKind = unit.kind
-  const teachSize = Math.min(TEACH_SIZE, Math.max(3, pool.length))
-  const teachItems = pickTeachItems(progress, pool, unitKind, teachSize)
-  if (!teachItems.length) return { teachItems: [], questions: [] }
-
-  const questions = []
-
-  // 1) Listen — hear → meaning (English)
-  for (const w of teachItems) {
-    questions.push({ kind: 'listen_meaning', word: w, section: 'Listen' })
-  }
-  // 2) Read — see Georgian → meaning
-  for (const w of teachItems) {
-    questions.push({ kind: 'read_meaning', word: w, section: 'Read' })
-  }
-  // 3) Talk — English → pick Georgian (no glosses on options)
-  for (const w of teachItems) {
-    questions.push({ kind: 'speak_pick', word: w, section: 'Talk' })
-  }
-  // 4) Write — English → type Georgian script (only after teach)
-  for (const w of teachItems) {
-    questions.push({ kind: 'write_geo', word: w, section: 'Write' })
-  }
-  // Phrases: order tokens instead of / in addition to write when multi-word
-  if (unitKind === 'phrases') {
-    for (const w of teachItems) {
-      if (w.tokens && w.tokens.length >= 2) {
-        questions.push({ kind: 'phrase_order', word: w, section: 'Write' })
-      }
-    }
-  }
-
-  return { teachItems, questions }
 }
 
 function pickTeachItems(progress, pool, unitKind, size = TEACH_SIZE) {
@@ -88,19 +44,72 @@ function pickTeachItems(progress, pool, unitKind, size = TEACH_SIZE) {
   return picked
 }
 
+/**
+ * Teach first, then practice ONLY those items, in skill blocks:
+ * Listen → Read → Talk → Write
+ */
+function buildSession(progress, pool, unit) {
+  const unitKind = unit.kind
+  const teachSize = Math.min(TEACH_SIZE, Math.max(3, pool.length))
+  const teachItems = pickTeachItems(progress, pool, unitKind, teachSize)
+  if (!teachItems.length) return { teachItems: [], questions: [] }
+
+  const questions = []
+  for (const w of teachItems) {
+    questions.push({ kind: 'listen_meaning', word: w, section: 'Listen' })
+  }
+  for (const w of teachItems) {
+    questions.push({ kind: 'read_meaning', word: w, section: 'Read' })
+  }
+  for (const w of teachItems) {
+    questions.push({ kind: 'speak_pick', word: w, section: 'Talk' })
+  }
+  for (const w of teachItems) {
+    questions.push({ kind: 'write_geo', word: w, section: 'Write' })
+  }
+  if (unitKind === 'phrases') {
+    for (const w of teachItems) {
+      if (w.tokens && w.tokens.length >= 2) {
+        questions.push({ kind: 'phrase_order', word: w, section: 'Write' })
+      }
+    }
+  }
+  return { teachItems, questions }
+}
+
 function optsFor(q, pool) {
   if (!q) return []
-  if (
-    q.kind === 'read_meaning'
-    || q.kind === 'listen_meaning'
-    || q.kind === 'speak_pick'
-  ) {
+  if (q.kind === 'read_meaning' || q.kind === 'listen_meaning' || q.kind === 'speak_pick') {
     return mcqOptions(q.word, pool)
   }
   return []
 }
 
-estions[idx]
+const initial = {
+  active: false,
+  done: false,
+  phase: 'teach',
+  status: 'prompt',
+  teachWords: [],
+  teachIdx: 0,
+  questions: [],
+  pool: [],
+  idx: 0,
+  opts: [],
+  pickedId: null,
+  typed: '',
+  lastCorrect: null,
+  answers: {},
+  score: { c: 0, w: 0 },
+  step: 0,
+  bank: [],
+  built: [],
+  reviewing: false,
+}
+
+function restoreAnswer(state, idx, reviewing = false) {
+  const prevAns = state.answers[idx]
+  const q = state.questions[idx]
   return {
     ...state,
     idx,
@@ -109,8 +118,9 @@ estions[idx]
     pickedId: prevAns?.pickedId ?? null,
     typed: prevAns?.typed ?? '',
     lastCorrect: prevAns ? !!prevAns.correct : null,
-    bank: q?.kind === 'phrase_order' ? shuffle(q.word.tokens || []) : [],
+    bank: q?.kind === 'phrase_order' ? shuffle([...(q.word.tokens || [])]) : [],
     built: prevAns?.built || [],
+    reviewing: !!reviewing,
     step: state.step + 1,
   }
 }
@@ -128,8 +138,7 @@ function reducer(state, action) {
         questions,
         pool,
         opts: optsFor(q0, pool),
-        bank: q0?.kind === 'phrase_order' ? shuffle(q0.word.tokens || []) : [],
-        built: [],
+        bank: q0?.kind === 'phrase_order' ? shuffle([...(q0.word.tokens || [])]) : [],
         step: 1,
       }
     }
@@ -142,34 +151,19 @@ function reducer(state, action) {
           phase: 'practice',
           teachIdx: next,
           status: 'prompt',
+          reviewing: false,
           opts: optsFor(q0, state.pool),
-          bank: q0?.kind === 'phrase_order' ? shuffle(q0.word.tokens || []) : [],
+          bank: q0?.kind === 'phrase_order' ? shuffle([...(q0.word.tokens || [])]) : [],
           built: [],
           step: state.step + 1,
         }
       }
-      return {
-        ...state,
-        teachIdx: next,
-        step: state.step + 1,
-      }
-    }
-    case 'teach_prev': {
-      if (state.teachIdx <= 0) return state
-      return {
-        ...state,
-        teachIdx: state.teachIdx - 1,
-        step: state.step + 1,
-      }
+      return { ...state, teachIdx: next, step: state.step + 1 }
     }
     case 'prev': {
       if (state.phase === 'teach') {
         if (state.teachIdx <= 0) return state
-        return {
-          ...state,
-          teachIdx: state.teachIdx - 1,
-          step: state.step + 1,
-        }
+        return { ...state, teachIdx: state.teachIdx - 1, step: state.step + 1 }
       }
       if (state.idx <= 0) {
         if (!state.teachWords.length) return state
@@ -181,10 +175,11 @@ function reducer(state, action) {
           pickedId: null,
           typed: '',
           lastCorrect: null,
+          reviewing: false,
           step: state.step + 1,
         }
       }
-      return restoreAnswer(state, state.idx - 1)
+      return restoreAnswer(state, state.idx - 1, true)
     }
     case 'answer': {
       if (state.status !== 'prompt' || state.done || state.phase !== 'practice') return state
@@ -192,6 +187,7 @@ function reducer(state, action) {
       return {
         ...state,
         status: 'feedback',
+        reviewing: false,
         pickedId: action.pickedId ?? null,
         typed: action.typed ?? state.typed,
         lastCorrect: !!action.correct,
@@ -236,12 +232,18 @@ function reducer(state, action) {
     case 'next': {
       const next = state.idx + 1
       if (next >= state.questions.length) {
-        return { ...state, done: true, status: 'prompt', pickedId: null, typed: '', lastCorrect: null }
+        return {
+          ...state,
+          done: true,
+          status: 'prompt',
+          pickedId: null,
+          typed: '',
+          lastCorrect: null,
+          reviewing: false,
+        }
       }
-      return restoreAnswer({ ...state, step: state.step }, next)
+      return restoreAnswer({ ...state, step: state.step }, next, false)
     }
-    case 'exit':
-      return { ...initial }
     default:
       return state
   }
@@ -249,19 +251,16 @@ function reducer(state, action) {
 
 function kindLabel(kind) {
   if (kind === 'listen_meaning') return 'Listen — what does it mean?'
-  if (kind === 'listen_pick') return 'Listen — pick the word'
-  if (kind === 'speak_pick') return 'How do you say this?'
-  if (kind === 'romanize') return 'Type how it sounds'
-  if (kind === 'write_geo') return 'Type it in Georgian'
-  if (kind === 'phrase_order') return 'Put the words in order'
-  return 'What does this mean?'
+  if (kind === 'speak_pick') return 'Talk — how do you say this?'
+  if (kind === 'write_geo') return 'Write — type it in Georgian'
+  if (kind === 'phrase_order') return 'Write — put the words in order'
+  return 'Read — what does this mean?'
 }
 
 function skillFor(kind, unitKind) {
-  if (kind === 'phrase_order') return unitKind === 'phrases' ? 'order' : 'decode'
-  if (kind === 'listen_meaning' || kind === 'listen_pick') return 'listening'
+  if (kind === 'phrase_order') return 'order'
+  if (kind === 'listen_meaning') return 'listening'
   if (kind === 'speak_pick' || kind === 'write_geo') return 'produce'
-  if (kind === 'romanize') return 'decode'
   return unitKind === 'phrases' ? 'comprehend' : 'meaning'
 }
 
@@ -274,18 +273,7 @@ function speakItem(item) {
 }
 
 function shouldAutoPlay(kind) {
-  return kind !== 'speak_pick'
-}
-
-function GeoOptionLabel({ word, showMeaning = true }) {
-  return (
-    <span>
-      <span className="option-geo">{word.georgian}</span>
-      {showMeaning && (
-        <span className="option-meta">{word.roman} · {word.english}</span>
-      )}
-    </span>
-  )
+  return kind !== 'speak_pick' && kind !== 'write_geo' && kind !== 'phrase_order'
 }
 
 export default function UnitLesson({ navigate, progressAPI, level }) {
@@ -303,10 +291,8 @@ export default function UnitLesson({ navigate, progressAPI, level }) {
     recordAnswer,
     recordLevelRound,
   } = progressAPI
-  const total = state.questions.length || PRACTICE_SIZE
+  const total = state.questions.length || 1
   const showingFeedback = state.status === 'feedback'
-  const levelId = unit.id
-  const alreadyAnswered = !!state.answers[state.idx]
   const unitKind = unit.kind
 
   function clearAdvance() {
@@ -318,9 +304,8 @@ export default function UnitLesson({ navigate, progressAPI, level }) {
 
   function start() {
     clearAdvance()
-    const teachWords = pickTeachItems(progress, pool, unitKind, Math.min(TEACH_SIZE, pool.length))
-    const questions = buildPractice(progress, pool, teachWords, unit)
-    dispatch({ type: 'boot', teachWords, questions, pool })
+    const { teachItems, questions } = buildSession(progress, pool, unit)
+    dispatch({ type: 'boot', teachWords: teachItems, questions, pool })
   }
 
   useEffect(() => {
@@ -348,7 +333,7 @@ export default function UnitLesson({ navigate, progressAPI, level }) {
   useEffect(() => {
     if (!state.active || state.done || state.phase !== 'practice') return
     const q = state.questions[state.idx]
-    if ((q?.kind === 'romanize' || q?.kind === 'write_geo') && state.status === 'prompt') {
+    if (q?.kind === 'write_geo' && state.status === 'prompt') {
       inputRef.current?.focus()
     }
   }, [state.active, state.done, state.phase, state.idx, state.status, state.questions])
@@ -361,6 +346,7 @@ export default function UnitLesson({ navigate, progressAPI, level }) {
 
   function goNextPractice() {
     clearAdvance()
+    stopAudio()
     document.activeElement?.blur?.()
     const willFinish = state.idx + 1 >= state.questions.length
     if (willFinish) recordRoundIfDone(state.score.c)
@@ -369,6 +355,7 @@ export default function UnitLesson({ navigate, progressAPI, level }) {
 
   function goPrev() {
     clearAdvance()
+    stopAudio()
     dispatch({ type: 'prev' })
   }
 
@@ -381,7 +368,8 @@ export default function UnitLesson({ navigate, progressAPI, level }) {
     dispatch({ type: 'answer', correct, ...extra })
     const sk = skillFor(q.kind, unitKind)
     if (unitKind === 'phrases') {
-      recordPhraseResult(q.word.id, sk === 'listening' || sk === 'meaning' ? 'comprehend' : sk, correct)
+      const phraseSkill = sk === 'listening' || sk === 'meaning' ? 'comprehend' : sk
+      recordPhraseResult(q.word.id, phraseSkill, correct)
     } else {
       recordWordResult(q.word.id, sk, correct)
     }
@@ -389,12 +377,12 @@ export default function UnitLesson({ navigate, progressAPI, level }) {
     if (correct) playCorrectSound()
     else playWrongSound()
 
+    // Correct → auto-advance silently (no Continue flash)
     if (correct) {
       advanceTimer.current = window.setTimeout(() => {
         document.activeElement?.blur?.()
         const finalCorrect = state.score.c + 1
-        const willFinish = state.idx + 1 >= total
-        if (willFinish) recordRoundIfDone(finalCorrect)
+        if (state.idx + 1 >= total) recordRoundIfDone(finalCorrect)
         dispatch({ type: 'next' })
       }, AUTO_ADVANCE_MS)
     }
@@ -409,17 +397,13 @@ export default function UnitLesson({ navigate, progressAPI, level }) {
     e?.preventDefault?.()
     if (!state.typed.trim()) return
     const q = state.questions[state.idx]
-    const ok = q.kind === 'write_geo'
-      ? matchesGeoOrRoman(state.typed, q.word)
-      : matchesWordRoman(state.typed, q.word)
-    finish(ok, { typed: state.typed })
+    finish(matchesGeorgian(state.typed, q.word), { typed: state.typed })
   }
 
   function checkOrder() {
     const q = state.questions[state.idx]
     if (state.built.length !== (q.word.tokens?.length || 0)) return
-    const correct = state.built.join(' ') === q.word.tokens.join(' ')
-    finish(correct)
+    finish(state.built.join(' ') === q.word.tokens.join(' '))
   }
 
   function typeLetter(ch) {
@@ -431,6 +415,11 @@ export default function UnitLesson({ navigate, progressAPI, level }) {
     ? state.teachIdx > 0
     : state.idx > 0 || state.teachWords.length > 0
 
+  // Continue only after a wrong answer (never on a fresh correct — that auto-advances)
+  const showContinue = showingFeedback && state.lastCorrect === false
+  // If user went back to a past correct item, offer Next (not labeled Continue)
+  const showNextReview = showingFeedback && state.reviewing && state.lastCorrect === true
+
   if (state.done) {
     return (
       <div className="screen">
@@ -439,7 +428,7 @@ export default function UnitLesson({ navigate, progressAPI, level }) {
           <h2 className="result-title">{title} complete</h2>
           <div className="result-score">{state.score.c}/{total}</div>
           <div className="result-sub">
-            {unit.grammar} · listen · read · write · talk
+            {unit.grammar} · listen · read · talk · write
           </div>
           <div className="result-actions">
             <button type="button" className="btn btn-primary" onClick={start}>Another round</button>
@@ -476,43 +465,35 @@ export default function UnitLesson({ navigate, progressAPI, level }) {
         <div className="pbar">
           <div
             className="pbar-fill"
-            style={{ width: `${((state.teachIdx) / (teachTotal + total)) * 100}%` }}
+            style={{ width: `${(state.teachIdx / (teachTotal + total)) * 100}%` }}
           />
         </div>
 
         <p className="practice-kind">
-          New {unitKind === 'phrases' ? 'phrase' : 'word'} · {state.teachIdx + 1}/{teachTotal}
+          Learn · {state.teachIdx + 1}/{teachTotal}
         </p>
         {unit.grammar && <p className="phrase-pattern">{unit.grammar}</p>}
 
         <div className="teach-card" key={`teach-${state.step}`}>
+          <WordImage word={word} size="lg" />
           <div className="practice-letter decode-word">{word.georgian}</div>
           <div className="decode-roman-hint">{word.roman}</div>
           <div className="teach-meaning">{word.english}</div>
           {word.note && <div className="phrase-note">{word.note}</div>}
-          <button
-            type="button"
-            className="sound-btn"
-            onClick={() => speakItem(word)}
-          >
+          <button type="button" className="sound-btn" onClick={() => speakItem(word)}>
             ▶ Listen again
           </button>
         </div>
 
         <div className="exercise-nav">
-          <button
-            type="button"
-            className="btn btn-ghost"
-            disabled={!canGoPrev}
-            onClick={goPrev}
-          >
+          <button type="button" className="btn btn-ghost" disabled={!canGoPrev} onClick={goPrev}>
             ← Previous
           </button>
           <button
             type="button"
             className="btn btn-primary"
             onClick={() => {
-              speakItem(word).catch(() => {})
+              stopAudio()
               dispatch({ type: 'teach_next' })
             }}
           >
@@ -525,10 +506,7 @@ export default function UnitLesson({ navigate, progressAPI, level }) {
 
   const q = state.questions[state.idx]
   const word = q.word
-  const typedOk = q.kind === 'write_geo'
-    ? matchesGeoOrRoman(state.typed, word)
-    : matchesWordRoman(state.typed, word)
-  const showContinue = showingFeedback && (state.lastCorrect === false || alreadyAnswered)
+  const typedOk = matchesGeorgian(state.typed, word)
 
   return (
     <div className="screen">
@@ -541,7 +519,7 @@ export default function UnitLesson({ navigate, progressAPI, level }) {
         <div className="pbar-fill" style={{ width: `${(state.idx / total) * 100}%` }} />
       </div>
 
-      <div className="quiz-score" style={{ marginBottom: 16 }}>
+      <div className="quiz-score" style={{ marginBottom: 12 }}>
         <span style={{ fontSize: '0.8rem', color: 'var(--text3)', marginRight: 4 }}>
           {state.idx + 1}/{total}
         </span>
@@ -549,129 +527,77 @@ export default function UnitLesson({ navigate, progressAPI, level }) {
         <span style={{ fontSize: '0.8rem', color: 'var(--error)', fontWeight: 600, marginLeft: 8 }}>✗ {state.score.w}</span>
       </div>
 
+      <p className="phrase-pattern" style={{ marginBottom: 4 }}>{q.section}</p>
       <p className="practice-kind">{kindLabel(q.kind)}</p>
 
       <div className="practice-prompt" key={`dq-${state.step}`}>
-        {(q.kind === 'listen_meaning' || q.kind === 'listen_pick') && (
-          <button
-            type="button"
-            className="sound-btn sound-btn-lg"
-            onClick={() => speakItem(word)}
-          >
+        {q.kind === 'listen_meaning' && (
+          <button type="button" className="sound-btn sound-btn-lg" onClick={() => speakItem(word)}>
             ▶ Listen
           </button>
         )}
-        {(q.kind === 'read_meaning' || q.kind === 'phrase_order') && (
+        {q.kind === 'read_meaning' && (
           <>
-            {q.kind === 'read_meaning' && (
-              <div className="practice-letter decode-word">{word.georgian}</div>
-            )}
-            {q.kind === 'phrase_order' && (
-              <div className="practice-letter" style={{ fontFamily: 'inherit', fontSize: '1.5rem' }}>
-                {word.english}
-              </div>
-            )}
-            {levelId <= 2 && q.kind === 'read_meaning' && (
-              <div className="decode-roman-hint">{word.roman}</div>
-            )}
-            <button type="button" className="sound-btn" onClick={() => speakItem(word)}>
-              ▶ Listen
-            </button>
-          </>
-        )}
-        {(q.kind === 'romanize' || q.kind === 'write_geo') && (
-          <>
-            <div className="practice-letter decode-word">
-              {q.kind === 'write_geo' ? word.english : word.georgian}
-            </div>
-            <button type="button" className="sound-btn" onClick={() => speakItem(word)}>
-              ▶ Listen
-            </button>
+            <div className="practice-letter decode-word">{word.georgian}</div>
+            <button type="button" className="sound-btn" onClick={() => speakItem(word)}>▶ Listen</button>
           </>
         )}
         {q.kind === 'speak_pick' && (
-          <>
-            <div className="practice-letter" style={{ fontFamily: 'inherit', fontSize: '1.75rem' }}>
-              {word.english}
-            </div>
-            <button type="button" className="sound-btn" onClick={() => speakItem(word)}>
-              ▶ Hear model
-            </button>
-          </>
+          <div className="practice-letter" style={{ fontFamily: 'inherit', fontSize: '1.75rem' }}>
+            {word.english}
+          </div>
+        )}
+        {q.kind === 'write_geo' && (
+          <div className="practice-letter" style={{ fontFamily: 'inherit', fontSize: '1.75rem' }}>
+            {word.english}
+          </div>
+        )}
+        {q.kind === 'phrase_order' && (
+          <div className="practice-letter" style={{ fontFamily: 'inherit', fontSize: '1.5rem' }}>
+            {word.english}
+          </div>
         )}
       </div>
-
-      {q.kind === 'romanize' && (
-        <form className="recall-form" onSubmit={handleSubmit}>
-          <input
-            ref={inputRef}
-            className={`trans-input${showingFeedback ? (typedOk ? ' correct' : ' wrong') : ''}`}
-            value={state.typed}
-            onChange={e => dispatch({ type: 'type', value: e.target.value })}
-            placeholder="Type romanization…"
-            autoCapitalize="off"
-            autoCorrect="off"
-            spellCheck={false}
-            disabled={showingFeedback}
-          />
-          {showingFeedback && (
-            <div className="recall-answer">
-              <div>{word.georgian} → <strong>{word.roman}</strong></div>
-              <div style={{ color: 'var(--text3)', marginTop: 4 }}>{word.english}</div>
-            </div>
-          )}
-          {!showingFeedback && (
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={!state.typed.trim()}
-              style={{ width: '100%', marginTop: 12 }}
-            >
-              Check
-            </button>
-          )}
-        </form>
-      )}
 
       {q.kind === 'write_geo' && (
         <>
           <div className={`write-display${showingFeedback ? (typedOk ? ' correct' : ' wrong') : ''}`}>
-            {state.typed || <span className="write-placeholder">Tap letters…</span>}
+            {state.typed || <span className="write-placeholder">Tap Georgian letters…</span>}
           </div>
           {showingFeedback && (
             <div className="recall-answer">
-              Answer: <strong>{word.georgian}</strong> ({word.roman}) · {word.english}
+              Answer: <strong>{word.georgian}</strong> · {word.english}
             </div>
           )}
-          <div className="geo-keyboard" aria-label="Georgian keyboard">
-            {GEO_LETTERS.map(letter => (
+          {!showingFeedback && (
+            <div className="geo-keyboard" aria-label="Georgian keyboard">
+              {GEO_LETTERS.map(letter => (
+                <button
+                  key={letter}
+                  type="button"
+                  className="geo-key"
+                  onClick={() => typeLetter(letter)}
+                >
+                  {letter}
+                </button>
+              ))}
               <button
-                key={letter}
                 type="button"
-                className="geo-key"
-                disabled={showingFeedback}
-                onClick={() => typeLetter(letter)}
+                className="geo-key geo-key-wide"
+                onClick={() => dispatch({ type: 'type', value: state.typed.slice(0, -1) })}
               >
-                {letter}
+                ⌫
               </button>
-            ))}
-            <button
-              type="button"
-              className="geo-key geo-key-wide"
-              disabled={showingFeedback}
-              onClick={() => dispatch({ type: 'type', value: state.typed.slice(0, -1) })}
-            >
-              ⌫
-            </button>
-            <button
-              type="button"
-              className="geo-key geo-key-check"
-              disabled={showingFeedback || !state.typed.trim()}
-              onClick={handleSubmit}
-            >
-              Check →
-            </button>
-          </div>
+              <button
+                type="button"
+                className="geo-key geo-key-check"
+                disabled={!state.typed.trim()}
+                onClick={handleSubmit}
+              >
+                Check →
+              </button>
+            </div>
+          )}
         </>
       )}
 
@@ -726,7 +652,7 @@ export default function UnitLesson({ navigate, progressAPI, level }) {
         </div>
       )}
 
-      {(q.kind === 'read_meaning' || q.kind === 'listen_meaning' || q.kind === 'listen_pick' || q.kind === 'speak_pick') && (
+      {(q.kind === 'read_meaning' || q.kind === 'listen_meaning' || q.kind === 'speak_pick') && (
         <div className="options-stack" key={`dopts-${state.step}`}>
           {state.opts.map(opt => {
             let cls = 'option-row'
@@ -742,8 +668,8 @@ export default function UnitLesson({ navigate, progressAPI, level }) {
                 onClick={() => handlePick(opt)}
                 disabled={showingFeedback}
               >
-                {q.kind === 'listen_pick' || q.kind === 'speak_pick' ? (
-                  <GeoOptionLabel word={opt} showMeaning={q.kind === 'listen_pick'} />
+                {q.kind === 'speak_pick' ? (
+                  <span className="option-geo">{opt.georgian}</span>
                 ) : (
                   opt.english
                 )}
@@ -754,28 +680,27 @@ export default function UnitLesson({ navigate, progressAPI, level }) {
       )}
 
       <div className="exercise-nav">
-        <button
-          type="button"
-          className="btn btn-ghost"
-          disabled={!canGoPrev}
-          onClick={goPrev}
-        >
+        <button type="button" className="btn btn-ghost" disabled={!canGoPrev} onClick={goPrev}>
           ← Previous
         </button>
         {showContinue && (
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={goNextPractice}
-          >
+          <button type="button" className="btn btn-primary" onClick={goNextPractice}>
             Continue →
+          </button>
+        )}
+        {showNextReview && (
+          <button type="button" className="btn btn-primary" onClick={goNextPractice}>
+            Next →
           </button>
         )}
       </div>
 
       {showingFeedback && state.lastCorrect === false && (
         <div className="feedback-msg wrong" style={{ marginTop: 12 }}>
-          Correct: <strong>{word.georgian}</strong> ({word.roman}) = {word.english}
+          <WordImage key={word.id} word={word} size="sm" />
+          <div style={{ marginTop: 8 }}>
+            Correct: <strong>{word.georgian}</strong> = {word.english}
+          </div>
         </div>
       )}
     </div>

@@ -20,23 +20,17 @@ export default function App() {
       return
     }
 
-    if (view === 'unit') {
-      const level = Number(params.level) || 1
-      if (!isLevelUnlocked(level, progressAPI.progress)) {
+    // Anything else goes to a mixed unit level (legacy Listen/Words/Write → Level N)
+    const level = Number(params.level) || 1
+    if (view === 'unit' || [
+      'decode', 'listen', 'words', 'phrases', 'write',
+      'read', 'speak', 'quiz', 'translation',
+    ].includes(view)) {
+      if (!isPathUnlocked('unit', progressAPI.progress) || !isLevelUnlocked(level, progressAPI.progress)) {
         setScreen({ view: 'home' })
         return
       }
       setScreen({ view: 'unit', level })
-      return
-    }
-
-    // Legacy skill routes → redirect into the linear unit path
-    if (['decode', 'listen', 'words', 'phrases', 'write', 'read', 'speak', 'quiz', 'translation'].includes(view)) {
-      if (!isPathUnlocked('unit', progressAPI.progress)) {
-        setScreen({ view: 'home' })
-        return
-      }
-      setScreen({ view: 'unit', level: Number(params.level) || 1 })
       return
     }
 

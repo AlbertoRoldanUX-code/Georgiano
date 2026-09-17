@@ -596,8 +596,54 @@ body {
 
 .teach-card {
   text-align: center;
-  padding: 28px 16px 8px;
-  margin-top: 8px;
+  padding: 20px 16px 8px;
+  margin-top: 4px;
+}
+
+.word-image {
+  margin: 0 auto 14px;
+  overflow: hidden;
+  border-radius: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.word-image-lg {
+  width: min(100%, 320px);
+  aspect-ratio: 4 / 3;
+}
+
+.word-image-sm {
+  width: 120px;
+  aspect-ratio: 1;
+}
+
+.word-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.word-image-swatch {
+  border: none;
+}
+
+.word-image-emoji,
+.word-image-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 4rem;
+  background: linear-gradient(160deg, #fff 0%, #f3f1ef 100%);
+}
+
+.word-image-number {
+  font-family: inherit;
+  font-weight: 800;
+  font-size: 4.5rem;
+  color: var(--text);
+  letter-spacing: -0.02em;
 }
 
 .teach-meaning {
