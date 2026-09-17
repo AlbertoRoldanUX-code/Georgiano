@@ -187,8 +187,8 @@ export const learningPath = [
     id: 'decode',
     step: 2,
     title: 'Word Decode',
-    desc: 'Read short words letter by letter',
-    skill: 'Reading bridge',
+    desc: 'Learn words, then listen · read · write · speak',
+    skill: 'Teach & practice',
     view: 'decode',
   },
   {

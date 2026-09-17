@@ -21,6 +21,7 @@ function defaults() {
     letters: {},
     words: {},
     phrases: {},
+    decodeLevelBest: {},
     listenLevelBest: {},
     wordsLevelBest: {},
     phrasesLevelBest: {},
@@ -54,6 +55,7 @@ function migrate(raw) {
     letters,
     words: raw.words && typeof raw.words === 'object' ? raw.words : {},
     phrases: raw.phrases && typeof raw.phrases === 'object' ? raw.phrases : {},
+    decodeLevelBest: asBestMap(raw.decodeLevelBest),
     listenLevelBest: asBestMap(raw.listenLevelBest),
     wordsLevelBest: asBestMap(raw.wordsLevelBest),
     phrasesLevelBest: asBestMap(raw.phrasesLevelBest),
@@ -149,7 +151,8 @@ export function useProgress() {
   function recordLevelRound(skill, levelId, pct) {
     if (!skill || !levelId) return
     const field =
-      skill === 'listen' ? 'listenLevelBest'
+      skill === 'decode' ? 'decodeLevelBest'
+      : skill === 'listen' ? 'listenLevelBest'
       : skill === 'words' ? 'wordsLevelBest'
       : skill === 'phrases' ? 'phrasesLevelBest'
       : skill === 'write' ? 'writeLevelBest'

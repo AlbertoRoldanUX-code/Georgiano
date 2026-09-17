@@ -140,14 +140,25 @@ export default function ListenLesson({ navigate, progressAPI, level }) {
     recordLetterResult,
   } = progressAPI
   const showingFeedback = state.status === 'feedback'
+  const advanceTimer = useRef(null)
+  const lastCorrect = state.history[state.history.length - 1]
+
+  function clearAdvance() {
+    if (advanceTimer.current) {
+      window.clearTimeout(advanceTimer.current)
+      advanceTimer.current = null
+    }
+  }
 
   function start() {
+    clearAdvance()
     const questions = buildSession(progress, pool)
     dispatch({ type: 'boot', questions, pool })
   }
 
   useEffect(() => {
     start()
+    return () => clearAdvance()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [level])
 
@@ -157,11 +168,38 @@ export default function ListenLesson({ navigate, progressAPI, level }) {
     if (q?.kind === 'dictation' && state.status === 'prompt') inputRef.current?.focus()
   }, [state.active, state.done, state.idx, state.status, state.questions])
 
+  // Auto-play prompt audio when an exercise appears
+  useEffect(() => {
+    if (!state.active || state.done || state.status !== 'prompt') return
+    const q = state.questions[state.idx]
+    if (!q) return
+    const t = window.setTimeout(() => {
+      if (q.kind === 'letter_listen') speakLetter(q.letter.letter)
+      else speakWord(q.word.georgian).catch(() => {})
+    }, 180)
+    return () => window.clearTimeout(t)
+  }, [state.active, state.done, state.idx, state.status, state.step])
+
+  function finishRoundIfNeeded(history) {
+    if (history.length < state.questions.length) return
+    const score = history.filter(h => h === 'c').length
+    const pct = Math.round((score / state.questions.length) * 100)
+    recordSkillRound('listen', pct)
+    if (level) recordLevelRound('listen', level, pct)
+  }
+
+  function goNext() {
+    clearAdvance()
+    document.activeElement?.blur?.()
+    finishRoundIfNeeded(state.history)
+    dispatch({ type: 'next' })
+  }
+
   function finish(correct, extra = {}) {
     if (state.status !== 'prompt' || state.done) return
     const q = state.questions[state.idx]
     const nextHistory = [...state.history, correct ? 'c' : 'w']
-    const willFinish = state.idx + 1 >= state.questions.length
+    clearAdvance()
 
     dispatch({ type: 'answer', correct, ...extra })
     if (correct) playCorrectSound()
@@ -174,16 +212,13 @@ export default function ListenLesson({ navigate, progressAPI, level }) {
       recordAnswer(q.word.id, correct, 'listen')
     }
 
-    window.setTimeout(() => {
-      document.activeElement?.blur?.()
-      if (willFinish) {
-        const score = nextHistory.filter(h => h === 'c').length
-        const pct = Math.round((score / state.questions.length) * 100)
-        recordSkillRound('listen', pct)
-        if (level) recordLevelRound('listen', level, pct)
-      }
-      dispatch({ type: 'next' })
-    }, 1000)
+    if (correct) {
+      advanceTimer.current = window.setTimeout(() => {
+        document.activeElement?.blur?.()
+        finishRoundIfNeeded(nextHistory)
+        dispatch({ type: 'next' })
+      }, 900)
+    }
   }
 
   function playPrompt() {
@@ -331,6 +366,26 @@ export default function ListenLesson({ navigate, progressAPI, level }) {
               </button>
             )
           })}
+        </div>
+      )}
+
+      {showingFeedback && lastCorrect === 'w' && (
+        <div className="feedback-continue">
+          <div className="feedback-msg wrong">
+            {q.kind === 'letter_listen' ? (
+              <>Correct: <strong>{q.letter.letter}</strong> ({q.letter.roman})</>
+            ) : (
+              <>Correct: <strong>{q.word.georgian}</strong> ({q.word.roman}) = {q.word.english}</>
+            )}
+          </div>
+          <button
+            type="button"
+            className="btn btn-primary"
+            style={{ width: '100%', marginTop: 12 }}
+            onClick={goNext}
+          >
+            Continue →
+          </button>
         </div>
       )}
     </div>

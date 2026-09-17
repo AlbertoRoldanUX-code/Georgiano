@@ -8,8 +8,8 @@ import {
 } from '../data/levels'
 import { isPathUnlocked, unlockHint, pathProgressLabel } from '../utils/pathUnlock'
 
-const LEVELED = new Set(['listen', 'words', 'phrases', 'write'])
-const DIRECT = new Set(['alphabet', 'decode'])
+const LEVELED = new Set(['decode', 'listen', 'words', 'phrases', 'write'])
+const DIRECT = new Set(['alphabet'])
 
 export default function Home({ navigate, progress }) {
   const [openSkill, setOpenSkill] = useState(null)

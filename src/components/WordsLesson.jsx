@@ -1,4 +1,4 @@
-import { useEffect, useReducer } from 'react'
+import { useEffect, useReducer, useRef } from 'react'
 import { allWords } from '../data/vocabulary'
 import { alphabet } from '../data/alphabet'
 import { getLevel, itemsForLevel } from '../data/levels'
@@ -133,22 +133,59 @@ export default function WordsLesson({ navigate, progressAPI, level }) {
   const [state, dispatch] = useReducer(reducer, initial)
   const { progress, recordAnswer, recordSkillRound, recordWordResult, recordLevelRound } = progressAPI
   const showingFeedback = state.status === 'feedback'
+  const advanceTimer = useRef(null)
+  const lastCorrect = state.history[state.history.length - 1]
+
+  function clearAdvance() {
+    if (advanceTimer.current) {
+      window.clearTimeout(advanceTimer.current)
+      advanceTimer.current = null
+    }
+  }
 
   function start() {
+    clearAdvance()
     const questions = buildSession(progress, pool)
     dispatch({ type: 'boot', questions, pool })
   }
 
   useEffect(() => {
     start()
+    return () => clearAdvance()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [level])
+
+  // Auto-play when exercise changes (skip english-only produce prompts)
+  useEffect(() => {
+    if (!state.active || state.done || state.status !== 'prompt') return
+    const q = state.questions[state.idx]
+    if (!q || q.kind === 'produce_pick' || q.kind === 'produce_type') return
+    const t = window.setTimeout(() => {
+      speakWord(q.word.georgian).catch(() => {})
+    }, 180)
+    return () => window.clearTimeout(t)
+  }, [state.active, state.done, state.idx, state.status, state.step, state.questions])
+
+  function finishRoundIfNeeded(history) {
+    if (history.length < state.questions.length) return
+    const score = history.filter(h => h === 'c').length
+    const pct = Math.round((score / state.questions.length) * 100)
+    recordSkillRound('words', pct)
+    if (level) recordLevelRound('words', level, pct)
+  }
+
+  function goNext() {
+    clearAdvance()
+    document.activeElement?.blur?.()
+    finishRoundIfNeeded(state.history)
+    dispatch({ type: 'next' })
+  }
 
   function finish(correct, extra = {}) {
     if (state.status !== 'prompt' || state.done) return
     const q = state.questions[state.idx]
     const nextHistory = [...state.history, correct ? 'c' : 'w']
-    const willFinish = state.idx + 1 >= state.questions.length
+    clearAdvance()
 
     dispatch({ type: 'answer', correct, ...extra })
     if (correct) playCorrectSound()
@@ -157,16 +194,13 @@ export default function WordsLesson({ navigate, progressAPI, level }) {
     recordWordResult(q.word.id, skillFor(q.kind), correct)
     recordAnswer(q.word.id, correct, 'words')
 
-    window.setTimeout(() => {
-      document.activeElement?.blur?.()
-      if (willFinish) {
-        const score = nextHistory.filter(h => h === 'c').length
-        const pct = Math.round((score / state.questions.length) * 100)
-        recordSkillRound('words', pct)
-        if (level) recordLevelRound('words', level, pct)
-      }
-      dispatch({ type: 'next' })
-    }, 1000)
+    if (correct) {
+      advanceTimer.current = window.setTimeout(() => {
+        document.activeElement?.blur?.()
+        finishRoundIfNeeded(nextHistory)
+        dispatch({ type: 'next' })
+      }, 900)
+    }
   }
 
   function handlePick(opt) {
@@ -326,9 +360,25 @@ export default function WordsLesson({ navigate, progressAPI, level }) {
                 ) : (
                   opt.english
                 )}
-              </button>
-            )
+            </button>
+          )
           })}
+        </div>
+      )}
+
+      {showingFeedback && lastCorrect === 'w' && (
+        <div className="feedback-continue">
+          <div className="feedback-msg wrong">
+            Correct: <strong>{w.georgian}</strong> ({w.roman}) = {w.english}
+          </div>
+          <button
+            type="button"
+            className="btn btn-primary"
+            style={{ width: '100%', marginTop: 12 }}
+            onClick={goNext}
+          >
+            Continue →
+          </button>
         </div>
       )}
     </div>

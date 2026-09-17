@@ -1,5 +1,6 @@
 import { allWords } from './vocabulary'
 import { phrases } from './phrases'
+import { decodeWords } from './decodeWords'
 
 /** Letters that are typically harder for Spanish/English learners. */
 const HARD_CHARS = new Set([
@@ -21,6 +22,13 @@ const PHRASE_META = [
   { id: 2, title: 'Level 2', subtitle: 'Short phrases', icon: '2' },
   { id: 3, title: 'Level 3', subtitle: 'Useful patterns', icon: '3' },
   { id: 4, title: 'Level 4', subtitle: 'Longer sentences', icon: '4' },
+]
+
+const DECODE_META = [
+  { id: 1, title: 'Level 1', subtitle: 'Tiny words first', icon: '1' },
+  { id: 2, title: 'Level 2', subtitle: 'Everyday shorts', icon: '2' },
+  { id: 3, title: 'Level 3', subtitle: 'Trickier sounds', icon: '3' },
+  { id: 4, title: 'Level 4', subtitle: 'Longer decode', icon: '4' },
 ]
 
 /** Score used to bucket vocabulary by listening/reading difficulty. */
@@ -74,6 +82,16 @@ function buildPhraseLevels() {
   })).filter(l => l.items.length > 0)
 }
 
+function buildDecodeLevels() {
+  const buckets = assignLevels(decodeWords, wordDifficulty, DECODE_META.length)
+  return DECODE_META.map((m, i) => ({
+    ...m,
+    key: `decode-level${m.id}`,
+    words: buckets[i] || [],
+    items: buckets[i] || [],
+  })).filter(l => l.words.length > 0)
+}
+
 /** Shared word difficulty levels (Listen / Words / Write). */
 export const wordLevels = buildWordLevels()
 
@@ -82,7 +100,11 @@ export const listenLevels = wordLevels
 
 export const phraseLevels = buildPhraseLevels()
 
+/** Short-word bridge after Alphabet (teach → mixed practice). */
+export const decodeLevels = buildDecodeLevels()
+
 const BEST_KEY = {
+  decode: 'decodeLevelBest',
   listen: 'listenLevelBest',
   words: 'wordsLevelBest',
   write: 'writeLevelBest',
@@ -91,6 +113,7 @@ const BEST_KEY = {
 
 export function levelsForSkill(skill) {
   if (skill === 'phrases') return phraseLevels
+  if (skill === 'decode') return decodeLevels
   return wordLevels
 }
 

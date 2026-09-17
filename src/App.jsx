@@ -38,7 +38,7 @@ export default function App() {
     return <AlphabetLesson navigate={navigate} progressAPI={progressAPI} />
 
   if (screen.view === 'decode')
-    return <DecodeLesson navigate={navigate} progressAPI={progressAPI} />
+    return <DecodeLesson navigate={navigate} progressAPI={progressAPI} level={screen.level} />
 
   if (screen.view === 'listen')
     return <ListenLesson navigate={navigate} progressAPI={progressAPI} level={screen.level} />

@@ -1,4 +1,4 @@
-import { useEffect, useReducer } from 'react'
+import { useEffect, useReducer, useRef } from 'react'
 import { phrases as allPhrases } from '../data/phrases'
 import { getLevel, itemsForLevel } from '../data/levels'
 import { playCorrectSound, playWrongSound, speakPhrase } from '../utils/audio'
@@ -132,21 +132,57 @@ export default function PhrasesLesson({ navigate, progressAPI, level }) {
   const [state, dispatch] = useReducer(reducer, initial)
   const { progress, recordAnswer, recordSkillRound, recordPhraseResult, recordLevelRound } = progressAPI
   const showingFeedback = state.status === 'feedback'
+  const advanceTimer = useRef(null)
+  const lastCorrect = state.history[state.history.length - 1]
+
+  function clearAdvance() {
+    if (advanceTimer.current) {
+      window.clearTimeout(advanceTimer.current)
+      advanceTimer.current = null
+    }
+  }
 
   function start() {
+    clearAdvance()
     dispatch({ type: 'boot', questions: buildSession(progress, pool), pool })
   }
 
   useEffect(() => {
     start()
+    return () => clearAdvance()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [level])
+
+  useEffect(() => {
+    if (!state.active || state.done || state.status !== 'prompt') return
+    const q = state.questions[state.idx]
+    if (!q || q.kind === 'meaning') return
+    const t = window.setTimeout(() => {
+      speakPhrase(q.phrase.georgian).catch(() => {})
+    }, 180)
+    return () => window.clearTimeout(t)
+  }, [state.active, state.done, state.idx, state.status, state.step, state.questions])
+
+  function finishRoundIfNeeded(history) {
+    if (history.length < state.questions.length) return
+    const score = history.filter(h => h === 'c').length
+    const pct = Math.round((score / state.questions.length) * 100)
+    recordSkillRound('phrases', pct)
+    if (level) recordLevelRound('phrases', level, pct)
+  }
+
+  function goNext() {
+    clearAdvance()
+    document.activeElement?.blur?.()
+    finishRoundIfNeeded(state.history)
+    dispatch({ type: 'next' })
+  }
 
   function finish(correct, extra = {}) {
     if (state.status !== 'prompt' || state.done) return
     const q = state.questions[state.idx]
     const nextHistory = [...state.history, correct ? 'c' : 'w']
-    const willFinish = state.idx + 1 >= state.questions.length
+    clearAdvance()
 
     dispatch({ type: 'answer', correct, ...extra })
     if (correct) playCorrectSound()
@@ -155,16 +191,13 @@ export default function PhrasesLesson({ navigate, progressAPI, level }) {
     recordPhraseResult(q.phrase.id, skillFor(q.kind), correct)
     recordAnswer(q.phrase.id, correct, 'phrases')
 
-    window.setTimeout(() => {
-      document.activeElement?.blur?.()
-      if (willFinish) {
-        const score = nextHistory.filter(h => h === 'c').length
-        const pct = Math.round((score / state.questions.length) * 100)
-        recordSkillRound('phrases', pct)
-        if (level) recordLevelRound('phrases', level, pct)
-      }
-      dispatch({ type: 'next' })
-    }, 1400)
+    if (correct) {
+      advanceTimer.current = window.setTimeout(() => {
+        document.activeElement?.blur?.()
+        finishRoundIfNeeded(nextHistory)
+        dispatch({ type: 'next' })
+      }, 1200)
+    }
   }
 
   function handlePick(opt) {
@@ -327,6 +360,22 @@ export default function PhrasesLesson({ navigate, progressAPI, level }) {
           {showingFeedback && ph.note && (
             <div className="phrase-note">{ph.note}</div>
           )}
+        </div>
+      )}
+
+      {showingFeedback && lastCorrect === 'w' && (
+        <div className="feedback-continue">
+          <div className="feedback-msg wrong">
+            Correct: <strong>{ph.georgian}</strong> = {ph.english}
+          </div>
+          <button
+            type="button"
+            className="btn btn-primary"
+            style={{ width: '100%', marginTop: 12 }}
+            onClick={goNext}
+          >
+            Continue →
+          </button>
         </div>
       )}
     </div>

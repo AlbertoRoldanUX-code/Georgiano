@@ -76,7 +76,10 @@ function skillReady(stats) {
 
 function blockReady(id, progress) {
   if (id === 'alphabet') return alphabetReady(progress)
-  if (id === 'decode') return skillReady(skillStats(progress, 'decode'))
+  // Decode: Level 3 gate, or legacy skill round (pre-levels users)
+  if (id === 'decode') {
+    return moduleGateReady('decode', progress, 3) || skillReady(skillStats(progress, 'decode'))
+  }
   // Leveled modules: clear Level 3 of that skill
   if (id === 'listen' || id === 'words' || id === 'phrases') {
     return moduleGateReady(id, progress, 3)
@@ -132,15 +135,21 @@ export function unlockHint(id, progress) {
     return { why: `Complete ${prevTitle} first`, missing }
   }
 
-  if (prev === 'listen' || prev === 'words' || prev === 'phrases') {
+  if (prev === 'decode' || prev === 'listen' || prev === 'words' || prev === 'phrases') {
     const bestKey =
-      prev === 'listen' ? 'listenLevelBest'
+      prev === 'decode' ? 'decodeLevelBest'
+      : prev === 'listen' ? 'listenLevelBest'
       : prev === 'words' ? 'wordsLevelBest'
       : 'phrasesLevelBest'
     const best = progress[bestKey]?.[3] || progress[bestKey]?.['3'] || 0
+    const legacy = prev === 'decode' ? skillStats(progress, 'decode') : null
+    const missing = [`Score ≥60% on ${prevTitle} Level 3 (best ${best}%)`]
+    if (legacy && (legacy.bestPct || legacy.attempts)) {
+      missing.push(`Or legacy: ≥70% in one Decode round (best ${legacy.bestPct || 0}%)`)
+    }
     return {
       why: `Complete ${prevTitle} first`,
-      missing: [`Score ≥60% on ${prevTitle} Level 3 (best ${best}%)`],
+      missing,
     }
   }
 
