@@ -1,11 +1,10 @@
-import { useState } from 'react'
-import { colorSwatch, wordEmoji, wordImageUrl, isColorWord } from '../utils/wordImage'
+import { colorSwatch, wordEmoji, isColorWord } from '../utils/wordImage'
 
 /**
- * Shows a photo (or color swatch / emoji fallback) for a vocab item.
+ * Instant visual for a vocab item: color swatch, number, or emoji.
+ * (No remote photos — those were too slow.)
  */
 export default function WordImage({ word, size = 'lg' }) {
-  const [phase, setPhase] = useState('photo') // photo | emoji
   if (!word) return null
 
   const swatch = isColorWord(word) ? colorSwatch(word) : null
@@ -29,26 +28,9 @@ export default function WordImage({ word, size = 'lg' }) {
     )
   }
 
-  const urls = wordImageUrl(word)
-  const src = word.image || urls.remote
-
-  if (phase === 'emoji' || !src) {
-    return (
-      <div className={`word-image word-image-${size} word-image-emoji`} aria-label={word.english}>
-        {wordEmoji(word)}
-      </div>
-    )
-  }
-
   return (
-    <div className={`word-image word-image-${size}`}>
-      <img
-        key={word.id}
-        src={src}
-        alt={word.english}
-        loading="lazy"
-        onError={() => setPhase('emoji')}
-      />
+    <div className={`word-image word-image-${size} word-image-emoji`} aria-label={word.english}>
+      {wordEmoji(word)}
     </div>
   )
 }
