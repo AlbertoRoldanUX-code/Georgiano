@@ -135,24 +135,42 @@ export function priority(card, confusionBoost = 0) {
   return score
 }
 
+/** Prefer Georgian→sound first in a session; reverse last. */
+function orderAlphabetSession(picked) {
+  const buckets = { recognize: [], recall: [], reverse: [] }
+  for (const item of picked) {
+    (buckets[item.kind] || buckets.recognize).push(item)
+  }
+  return [
+    ...shuffle(buckets.recognize),
+    ...shuffle(buckets.recall),
+    ...shuffle(buckets.reverse),
+  ]
+}
+
 /**
  * Build a mixed alphabet practice session.
- * ~70% recognition MCQ early; more recall as letters unlock.
+ * Early: almost all Georgian → sound (recognize).
+ * Recall after recognitionReady; reverse (sound → Georgian) only later.
  */
 export function pickAlphabetSession(progress, size = 12) {
   const items = []
+  const readyCount = countRecognitionReady(progress)
+  // Sound → Georgian only after a solid recognition base
+  const reverseUnlocked = readyCount >= 8
 
   for (const l of alphabet) {
     const entry = letterEntry(progress, l.letter)
     const confBoost = Object.values(entry.confusions || {}).reduce((a, b) => a + b, 0)
+    const recReady = recognitionReady(entry.recognition)
 
     items.push({
       kind: 'recognize',
       letter: l,
-      weight: priority(entry.recognition, confBoost * 4),
+      weight: priority(entry.recognition, confBoost * 4) + (recReady ? 0 : 12),
     })
 
-    if (recognitionReady(entry.recognition)) {
+    if (recReady) {
       items.push({
         kind: 'recall',
         letter: l,
@@ -160,12 +178,13 @@ export function pickAlphabetSession(progress, size = 12) {
       })
     }
 
-    // Occasional reverse: roman → pick Georgian letter (after some recognition)
-    if ((entry.recognition.attempts || 0) >= 2) {
+    // Reverse: sound → pick Georgian — only when this letter is recognized
+    // and the learner already has a recognition base overall.
+    if (reverseUnlocked && recReady) {
       items.push({
         kind: 'reverse',
         letter: l,
-        weight: priority(entry.recognition, confBoost * 2) * 0.7,
+        weight: priority(entry.recognition, confBoost * 2) * 0.4,
       })
     }
   }
@@ -182,10 +201,11 @@ export function pickAlphabetSession(progress, size = 12) {
     if (picked.length >= size) break
   }
 
-  // Cap reverse to ~25% of session
+  // Cap reverse to ~15% of session (recognition stays the core drill)
+  const maxReverse = reverseUnlocked ? Math.max(1, Math.floor(size * 0.15)) : 0
   const reverses = picked.filter(p => p.kind === 'reverse')
-  if (reverses.length > Math.ceil(size * 0.25)) {
-    const drop = new Set(reverses.slice(Math.ceil(size * 0.25)).map(p => `${p.kind}:${p.letter.letter}`))
+  if (reverses.length > maxReverse) {
+    const drop = new Set(reverses.slice(maxReverse).map(p => `${p.kind}:${p.letter.letter}`))
     const filtered = picked.filter(p => !drop.has(`${p.kind}:${p.letter.letter}`))
     while (filtered.length < size) {
       const filler = items.find(i =>
@@ -195,10 +215,10 @@ export function pickAlphabetSession(progress, size = 12) {
       if (!filler) break
       filtered.push(filler)
     }
-    return shuffle(filtered.slice(0, size))
+    return orderAlphabetSession(filtered.slice(0, size))
   }
 
-  return shuffle(picked)
+  return orderAlphabetSession(picked)
 }
 
 /** MCQ options: prefer confusable letters as distractors. */

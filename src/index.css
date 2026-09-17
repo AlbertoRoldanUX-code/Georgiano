@@ -546,6 +546,18 @@ body {
   letter-spacing: 0.02em;
 }
 
+.option-ipa {
+  font-family: inherit;
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.recall-answer-roman {
+  color: var(--text3);
+  font-weight: 500;
+}
+
 .option-geo {
   font-family: 'Sylfaen', 'BPG Arial', serif;
   font-size: 1.75rem;
@@ -924,10 +936,14 @@ body {
   font-size: 1.125rem;
   font-family: inherit;
   font-weight: 600;
-  cursor: pointer;
-  transition: border-color 0.15s, background 0.15s, color 0.15s;
   color: var(--text);
   text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
   -webkit-tap-highlight-color: transparent;
   outline: none;
   -webkit-touch-callout: none;
