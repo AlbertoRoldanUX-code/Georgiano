@@ -27,7 +27,6 @@ function playFile(src) {
   audio.onended = () => {
     if (currentAudio === audio) currentAudio = null
   }
-  // Must be called directly from a user tap on iOS.
   return audio.play()
 }
 
@@ -37,12 +36,25 @@ function playFileToEnd(src) {
     const audio = new Audio(src)
     audio.playsInline = true
     currentAudio = audio
-    audio.onended = () => {
+
+    let settled = false
+    const finish = (ok, err) => {
+      if (settled) return
+      settled = true
+      window.clearTimeout(timer)
       if (currentAudio === audio) currentAudio = null
-      resolve()
+      if (ok) resolve()
+      else reject(err || new Error('audio error'))
     }
-    audio.onerror = () => reject(new Error('audio error'))
-    audio.play().catch(reject)
+
+    const timer = window.setTimeout(() => {
+      try { audio.pause() } catch { /* ignore */ }
+      finish(false, new Error('audio timeout'))
+    }, 5000)
+
+    audio.onended = () => finish(true)
+    audio.onerror = () => finish(false)
+    audio.play().catch(err => finish(false, err))
   })
 }
 
@@ -57,7 +69,7 @@ function speakWithTTS(text) {
   if (typeof window === 'undefined' || !window.speechSynthesis) {
     return Promise.resolve()
   }
-  stopAudio()
+  window.speechSynthesis.cancel()
   const utter = new SpeechSynthesisUtterance(text)
   utter.lang = 'ka-GE'
   utter.rate = 0.9
@@ -65,17 +77,18 @@ function speakWithTTS(text) {
   return Promise.resolve()
 }
 
-/** Play a Georgian example word. Call only from a click/tap handler. */
+/** Play a Georgian example word. */
 export function speakWord(text) {
   const clean = stripForAudio(text)
   if (!clean) return Promise.resolve()
+  if (/\s/.test(clean)) return speakPhrase(clean)
   const src = `/audio/words/${wordAudioKey(clean)}.mp3`
   return playFile(src).catch(() => speakWithTTS(clean))
 }
 
 /**
- * Phrases: try full-phrase MP3, then play known word tokens in order,
- * then browser TTS as last resort.
+ * Phrases: full MP3 → each known token MP3 (skip missing) → TTS fallback.
+ * Previously one missing token (e.g. მე) aborted the whole phrase.
  */
 export async function speakPhrase(text) {
   const clean = stripForAudio(text)
@@ -90,20 +103,21 @@ export async function speakPhrase(text) {
 
   const tokens = clean.split(/\s+/).filter(Boolean)
   if (tokens.length > 1) {
-    try {
-      for (const tok of tokens) {
+    let played = 0
+    for (const tok of tokens) {
+      try {
         await playFileToEnd(`/audio/words/${wordAudioKey(tok)}.mp3`)
+        played += 1
+      } catch {
+        // Missing file — skip and keep going (don't silence the rest)
       }
-      return
-    } catch {
-      // fall through to TTS
     }
+    if (played > 0) return
   }
 
   return speakWithTTS(clean)
 }
 
-/** Single Mkhedruli letter sound (files live in /audio/, not /audio/words/). */
 export function speakLetter(letter) {
   const src = `/audio/${wordAudioKey(letter)}.mp3`
   return playFile(src).catch(() => speakWithTTS(letter))
