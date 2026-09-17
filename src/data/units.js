@@ -3,24 +3,20 @@ import { phrases } from './phrases'
 import { wordDifficulty } from './levels'
 
 /**
- * Single progressive path after Alphabet.
- * Every unit mixes listen · read · write · talk;
+ * Progressive path after Alphabet.
+ * Every level mixes everyday words + useful phrases;
  * only difficulty / grammar grow.
  */
 
-const WORD_UNITS = [
-  { subtitle: 'Short & clear', grammar: 'First everyday words' },
-  { subtitle: 'Common vocab', grammar: 'Family, food, colors basics' },
-  { subtitle: 'Trickier sounds', grammar: 'Harder consonants (კ პ ტ ღ ხ…)' },
-  { subtitle: 'Longer words', grammar: 'Longer stems & compounds' },
-  { subtitle: 'Challenge words', grammar: 'Dense reading & listening' },
-]
-
-const PHRASE_UNITS = [
-  { subtitle: 'Essential phrases', grammar: 'Greetings & politeness' },
-  { subtitle: 'Short patterns', grammar: 'ვარ / ხარ — I am / you are' },
-  { subtitle: 'Useful patterns', grammar: 'Want, questions, location' },
-  { subtitle: 'Longer sentences', grammar: 'Full everyday sentences' },
+const LEVEL_META = [
+  { subtitle: 'Greetings & first words', grammar: 'Hello, thanks · short clear words' },
+  { subtitle: 'Daily basics', grammar: 'How are you? · family & simple vocab' },
+  { subtitle: 'I am / I want', grammar: 'ვარ · მინდა · trickier sounds' },
+  { subtitle: 'Around town', grammar: 'Where is…? · longer everyday words' },
+  { subtitle: 'Likes & names', grammar: 'მიყვარს · name patterns · denser vocab' },
+  { subtitle: 'Survival phrases', grammar: 'I don’t understand · English? · challenge words' },
+  { subtitle: 'Shopping & food', grammar: 'How much? · khinkali · full sentences' },
+  { subtitle: 'Travel talk', grammar: 'Useful travel phrases · harder reading' },
 ]
 
 function assignBuckets(items, scoreFn, count) {
@@ -43,49 +39,29 @@ function phraseDifficulty(ph) {
 }
 
 function buildUnits() {
-  const wordBuckets = assignBuckets(allWords, wordDifficulty, WORD_UNITS.length)
-  const phraseBuckets = assignBuckets(phrases, phraseDifficulty, PHRASE_UNITS.length)
-  const units = []
+  const n = LEVEL_META.length
+  const wordBuckets = assignBuckets(allWords, wordDifficulty, n)
+  const phraseBuckets = assignBuckets(phrases, phraseDifficulty, n)
 
-  WORD_UNITS.forEach((meta, i) => {
+  return LEVEL_META.map((meta, i) => {
     const words = wordBuckets[i] || []
-    if (!words.length) return
-    const id = units.length + 1
-    units.push({
+    const phs = phraseBuckets[i] || []
+    const items = [...words, ...phs]
+    const id = i + 1
+    return {
       id,
       key: `unit-${id}`,
       title: `Level ${id}`,
       subtitle: meta.subtitle,
       grammar: meta.grammar,
       icon: String(id),
-      kind: 'words',
+      kind: 'mixed',
       skill: 'Listen · Read · Write · Talk',
       words,
-      phrases: [],
-      items: words,
-    })
-  })
-
-  PHRASE_UNITS.forEach((meta, i) => {
-    const phs = phraseBuckets[i] || []
-    if (!phs.length) return
-    const id = units.length + 1
-    units.push({
-      id,
-      key: `unit-${id}`,
-      title: `Level ${id}`,
-      subtitle: meta.subtitle,
-      grammar: meta.grammar,
-      icon: String(id),
-      kind: 'phrases',
-      skill: 'Listen · Read · Write · Talk',
-      words: [],
       phrases: phs,
-      items: phs,
-    })
-  })
-
-  return units
+      items,
+    }
+  }).filter(u => u.items.length > 0)
 }
 
 /** Progressive mixed units after Alphabet. */

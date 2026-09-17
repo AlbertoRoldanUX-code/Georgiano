@@ -20,38 +20,50 @@ function matchesGeorgian(input, word) {
   return n === normalize(word.georgian)
 }
 
-function pickTeachItems(progress, pool, unitKind, size = TEACH_SIZE) {
+function isPhraseItem(item) {
+  return Array.isArray(item?.tokens)
+}
+
+function pickTeachItems(progress, pool, size = TEACH_SIZE) {
   if (!pool.length) return []
-  const bag = unitKind === 'phrases' ? 'phrases' : 'words'
-  const fresh = pool.filter(w => {
-    const e = progress[bag]?.[w.id]
-    if (!e) return true
-    if (unitKind === 'phrases') {
+  const fresh = pool.filter(item => {
+    if (isPhraseItem(item)) {
+      const e = progress.phrases?.[item.id]
+      if (!e) return true
       return !(e.comprehend?.attempts || e.order?.attempts || e.produce?.attempts)
     }
+    const e = progress.words?.[item.id]
+    if (!e) return true
     return !(e.meaning?.attempts || e.reading?.attempts || e.listening?.attempts || e.produce?.attempts)
   })
   const review = pool.filter(w => !fresh.includes(w))
   const picked = []
-  for (const w of shuffle(fresh)) {
+  // Prefer a mix: ~half phrases when available
+  const freshPhrases = shuffle(fresh.filter(isPhraseItem))
+  const freshWords = shuffle(fresh.filter(w => !isPhraseItem(w)))
+  const reviewPhrases = shuffle(review.filter(isPhraseItem))
+  const reviewWords = shuffle(review.filter(w => !isPhraseItem(w)))
+
+  const phraseTarget = Math.min(2, Math.max(1, Math.floor(size / 2)), freshPhrases.length + reviewPhrases.length)
+  for (const w of [...freshPhrases, ...reviewPhrases]) {
+    if (picked.filter(isPhraseItem).length >= phraseTarget) break
     if (picked.length >= size) break
     picked.push(w)
   }
-  for (const w of shuffle(review.length ? review : pool)) {
+  for (const w of [...freshWords, ...reviewWords, ...freshPhrases, ...reviewPhrases]) {
     if (picked.length >= size) break
     if (!picked.includes(w)) picked.push(w)
   }
-  return picked
+  return shuffle(picked)
 }
 
 /**
  * Teach first, then practice ONLY those items, in skill blocks:
- * Listen → Read → Talk → Write
+ * Listen → Read → Talk → Write (+ order for multi-word phrases)
  */
-function buildSession(progress, pool, unit) {
-  const unitKind = unit.kind
-  const teachSize = Math.min(TEACH_SIZE, Math.max(3, pool.length))
-  const teachItems = pickTeachItems(progress, pool, unitKind, teachSize)
+function buildSession(progress, pool) {
+  const teachSize = Math.min(TEACH_SIZE, Math.max(4, Math.min(5, pool.length)))
+  const teachItems = pickTeachItems(progress, pool, teachSize)
   if (!teachItems.length) return { teachItems: [], questions: [] }
 
   const questions = []
@@ -67,11 +79,9 @@ function buildSession(progress, pool, unit) {
   for (const w of teachItems) {
     questions.push({ kind: 'write_geo', word: w, section: 'Write' })
   }
-  if (unitKind === 'phrases') {
-    for (const w of teachItems) {
-      if (w.tokens && w.tokens.length >= 2) {
-        questions.push({ kind: 'phrase_order', word: w, section: 'Write' })
-      }
+  for (const w of teachItems) {
+    if (isPhraseItem(w) && w.tokens.length >= 2) {
+      questions.push({ kind: 'phrase_order', word: w, section: 'Write' })
     }
   }
   return { teachItems, questions }
@@ -229,6 +239,12 @@ function reducer(state, action) {
     case 'type':
       if (state.status !== 'prompt') return state
       return { ...state, typed: action.value }
+    case 'backspace':
+      if (state.status !== 'prompt') return state
+      return { ...state, typed: state.typed.slice(0, -1) }
+    case 'append':
+      if (state.status !== 'prompt') return state
+      return { ...state, typed: state.typed + (action.ch || '') }
     case 'next': {
       const next = state.idx + 1
       if (next >= state.questions.length) {
@@ -257,11 +273,11 @@ function kindLabel(kind) {
   return 'Read — what does this mean?'
 }
 
-function skillFor(kind, unitKind) {
+function skillFor(kind, item) {
   if (kind === 'phrase_order') return 'order'
   if (kind === 'listen_meaning') return 'listening'
   if (kind === 'speak_pick' || kind === 'write_geo') return 'produce'
-  return unitKind === 'phrases' ? 'comprehend' : 'meaning'
+  return isPhraseItem(item) ? 'comprehend' : 'meaning'
 }
 
 function speakItem(item) {
@@ -281,8 +297,9 @@ export default function UnitLesson({ navigate, progressAPI, level }) {
   const pool = unit.items
   const title = unit.title
   const [state, dispatch] = useReducer(reducer, initial)
-  const inputRef = useRef(null)
   const advanceTimer = useRef(null)
+  const typedRef = useRef('')
+  typedRef.current = state.typed
   const {
     progress,
     recordWordResult,
@@ -293,7 +310,6 @@ export default function UnitLesson({ navigate, progressAPI, level }) {
   } = progressAPI
   const total = state.questions.length || 1
   const showingFeedback = state.status === 'feedback'
-  const unitKind = unit.kind
 
   function clearAdvance() {
     if (advanceTimer.current) {
@@ -304,7 +320,7 @@ export default function UnitLesson({ navigate, progressAPI, level }) {
 
   function start() {
     clearAdvance()
-    const { teachItems, questions } = buildSession(progress, pool, unit)
+    const { teachItems, questions } = buildSession(progress, pool)
     dispatch({ type: 'boot', teachWords: teachItems, questions, pool })
   }
 
@@ -330,12 +346,37 @@ export default function UnitLesson({ navigate, progressAPI, level }) {
     return () => window.clearTimeout(t)
   }, [state.active, state.done, state.phase, state.teachIdx, state.idx, state.status, state.step])
 
+  // Physical keyboard: type Georgian letters, Backspace to delete, Enter to check
   useEffect(() => {
     if (!state.active || state.done || state.phase !== 'practice') return
+    if (state.status !== 'prompt') return
     const q = state.questions[state.idx]
-    if (q?.kind === 'write_geo' && state.status === 'prompt') {
-      inputRef.current?.focus()
+    if (q?.kind !== 'write_geo') return
+
+    function onKeyDown(e) {
+      if (e.key === 'Backspace' || e.key === 'Delete') {
+        e.preventDefault()
+        dispatch({ type: 'backspace' })
+        return
+      }
+      if (e.key === 'Enter') {
+        e.preventDefault()
+        const typed = typedRef.current
+        if (!typed.trim()) return
+        const current = state.questions[state.idx]
+        if (!current) return
+        finish(matchesGeorgian(typed, current.word), { typed })
+        return
+      }
+      if (e.key.length === 1 && GEO_LETTERS.includes(e.key)) {
+        e.preventDefault()
+        dispatch({ type: 'append', ch: e.key })
+      }
     }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.active, state.done, state.phase, state.idx, state.status, state.questions])
 
   function recordRoundIfDone(correctCount) {
@@ -366,8 +407,8 @@ export default function UnitLesson({ navigate, progressAPI, level }) {
     clearAdvance()
 
     dispatch({ type: 'answer', correct, ...extra })
-    const sk = skillFor(q.kind, unitKind)
-    if (unitKind === 'phrases') {
+    const sk = skillFor(q.kind, q.word)
+    if (isPhraseItem(q.word)) {
       const phraseSkill = sk === 'listening' || sk === 'meaning' ? 'comprehend' : sk
       recordPhraseResult(q.word.id, phraseSkill, correct)
     } else {
@@ -377,7 +418,6 @@ export default function UnitLesson({ navigate, progressAPI, level }) {
     if (correct) playCorrectSound()
     else playWrongSound()
 
-    // Correct → auto-advance silently (no Continue flash)
     if (correct) {
       advanceTimer.current = window.setTimeout(() => {
         document.activeElement?.blur?.()
@@ -408,7 +448,7 @@ export default function UnitLesson({ navigate, progressAPI, level }) {
 
   function typeLetter(ch) {
     if (showingFeedback) return
-    dispatch({ type: 'type', value: state.typed + ch })
+    dispatch({ type: 'append', ch })
   }
 
   const canGoPrev = state.phase === 'teach'
@@ -471,6 +511,7 @@ export default function UnitLesson({ navigate, progressAPI, level }) {
 
         <p className="practice-kind">
           Learn · {state.teachIdx + 1}/{teachTotal}
+          {isPhraseItem(word) ? ' · phrase' : ' · word'}
         </p>
         {unit.grammar && <p className="phrase-pattern">{unit.grammar}</p>}
 
@@ -562,7 +603,7 @@ export default function UnitLesson({ navigate, progressAPI, level }) {
       {q.kind === 'write_geo' && (
         <>
           <div className={`write-display${showingFeedback ? (typedOk ? ' correct' : ' wrong') : ''}`}>
-            {state.typed || <span className="write-placeholder">Tap Georgian letters…</span>}
+            {state.typed || <span className="write-placeholder">Type or tap Georgian letters…</span>}
           </div>
           {showingFeedback && (
             <div className="recall-answer">
@@ -584,7 +625,7 @@ export default function UnitLesson({ navigate, progressAPI, level }) {
               <button
                 type="button"
                 className="geo-key geo-key-wide"
-                onClick={() => dispatch({ type: 'type', value: state.typed.slice(0, -1) })}
+                onClick={() => dispatch({ type: 'backspace' })}
               >
                 ⌫
               </button>

@@ -23,7 +23,7 @@ export default function Home({ navigate, progress }) {
       <div className="home-header">
         <div className="home-geo">გამარჯობა!</div>
         <h1 className="home-title">Learn Georgian</h1>
-        <p className="home-sub">Alphabet → Level 1 → Level 2 → … (listen · read · write · talk)</p>
+        <p className="home-sub">Alphabet → levels with words & everyday phrases (listen · read · write · talk)</p>
       </div>
 
       <div className="stats-row">
@@ -95,7 +95,7 @@ export default function Home({ navigate, progress }) {
                   <div className="module-skill">{unit.skill}</div>
                   {open && (
                     <div className="module-progress">
-                      {unit.items.length} {unit.kind === 'phrases' ? 'phrases' : 'words'}
+                      {unit.words.length} words · {unit.phrases.length} phrases
                       {best ? ` · best ${best}%` : ''}
                     </div>
                   )}
