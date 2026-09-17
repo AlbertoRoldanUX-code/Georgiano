@@ -299,6 +299,7 @@ export default function UnitLesson({ navigate, progressAPI, level }) {
   const [state, dispatch] = useReducer(reducer, initial)
   const advanceTimer = useRef(null)
   const typedRef = useRef('')
+  const suppressForward = useRef(false)
   typedRef.current = state.typed
   const {
     progress,
@@ -310,11 +311,18 @@ export default function UnitLesson({ navigate, progressAPI, level }) {
   } = progressAPI
   const total = state.questions.length || 1
   const showingFeedback = state.status === 'feedback'
+  const alreadyAnswered = !!state.answers[state.idx]
+  // Force re-render when suppressForward flips after correct auto-advance
+  const [, bump] = useReducer(x => x + 1, 0)
 
   function clearAdvance() {
     if (advanceTimer.current) {
       window.clearTimeout(advanceTimer.current)
       advanceTimer.current = null
+    }
+    if (suppressForward.current) {
+      suppressForward.current = false
+      bump()
     }
   }
 
@@ -419,10 +427,14 @@ export default function UnitLesson({ navigate, progressAPI, level }) {
     else playWrongSound()
 
     if (correct) {
+      // Hide forward button briefly while auto-advancing
+      suppressForward.current = true
+      bump()
       advanceTimer.current = window.setTimeout(() => {
         document.activeElement?.blur?.()
         const finalCorrect = state.score.c + 1
         if (state.idx + 1 >= total) recordRoundIfDone(finalCorrect)
+        suppressForward.current = false
         dispatch({ type: 'next' })
       }, AUTO_ADVANCE_MS)
     }
@@ -455,10 +467,13 @@ export default function UnitLesson({ navigate, progressAPI, level }) {
     ? state.teachIdx > 0
     : state.idx > 0 || state.teachWords.length > 0
 
-  // Continue only after a wrong answer (never on a fresh correct — that auto-advances)
-  const showContinue = showingFeedback && state.lastCorrect === false
-  // If user went back to a past correct item, offer Next (not labeled Continue)
-  const showNextReview = showingFeedback && state.reviewing && state.lastCorrect === true
+  // Forward when stuck on feedback: wrong answers, or any already-answered item
+  // (e.g. after Previous). Suppressed only during the brief correct auto-advance.
+  const showForward =
+    showingFeedback
+    && alreadyAnswered
+    && !suppressForward.current
+  const forwardLabel = state.lastCorrect === false ? 'Continue →' : 'Next →'
 
   if (state.done) {
     return (
@@ -724,14 +739,9 @@ export default function UnitLesson({ navigate, progressAPI, level }) {
         <button type="button" className="btn btn-ghost" disabled={!canGoPrev} onClick={goPrev}>
           ← Previous
         </button>
-        {showContinue && (
+        {showForward && (
           <button type="button" className="btn btn-primary" onClick={goNextPractice}>
-            Continue →
-          </button>
-        )}
-        {showNextReview && (
-          <button type="button" className="btn btn-primary" onClick={goNextPractice}>
-            Next →
+            {forwardLabel}
           </button>
         )}
       </div>
