@@ -1,6 +1,6 @@
 import { useEffect, useReducer, useRef, useState } from 'react'
 import { alphabet } from '../data/alphabet'
-import { playCorrectSound, playWrongSound, speakLetter, speakWord } from '../utils/audio'
+import { playCorrectSound, playWrongSound, speakWord } from '../utils/audio'
 import {
   countRecognitionReady,
   countRecallReady,
@@ -118,9 +118,9 @@ function PracticeExampleReveal({ example, exMeaning }) {
 }
 
 function kindLabel(kind) {
-  if (kind === 'recall') return 'What sound is this? (type it)'
-  if (kind === 'reverse') return 'Which letter makes this sound?'
-  return 'What sound is this?'
+  if (kind === 'recall') return 'Type the romanization'
+  if (kind === 'reverse') return 'Which letter is this?'
+  return 'Pick the romanization'
 }
 
 export default function AlphabetLesson({ navigate, progressAPI }) {
@@ -153,14 +153,6 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
       inputRef.current?.focus()
     }
   }, [tab, state.active, state.idx, state.status, state.questions])
-
-  // Autoplay the letter sound — recognition/recall hear პ; reverse hears the cue
-  useEffect(() => {
-    if (tab !== 'practice' || !state.active || state.status !== 'prompt') return
-    const q = state.questions[state.idx]
-    if (!q?.letter?.letter) return
-    speakLetter(q.letter.letter)
-  }, [tab, state.active, state.status, state.idx, state.step, state.questions])
 
   function startPractice() {
     const questions = pickAlphabetSession(progress, SESSION_SIZE)
@@ -281,27 +273,12 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
 
         <div className="practice-prompt" key={`q-${state.step}`}>
           {q.kind === 'reverse' ? (
-            <button
-              type="button"
-              className="sound-btn sound-btn-lg"
-              onClick={() => speakLetter(letter.letter)}
-              aria-label="Hear the sound"
-            >
-              ▶ Hear the sound
-            </button>
+            <div className="practice-letter practice-roman-prompt">{letter.roman}</div>
           ) : (
-            <>
-              <div className="practice-letter">{letter.letter}</div>
-              <button
-                type="button"
-                className="sound-btn"
-                onClick={() => speakLetter(letter.letter)}
-                aria-label="Hear this letter"
-              >
-                ▶ Listen
-              </button>
-              <PracticeExampleReveal example={letter.example} exMeaning={letter.exMeaning} />
-            </>
+            <div className="practice-letter">{letter.letter}</div>
+          )}
+          {q.kind !== 'reverse' && (
+            <PracticeExampleReveal example={letter.example} exMeaning={letter.exMeaning} />
           )}
         </div>
 
@@ -383,7 +360,7 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
       </nav>
 
       <p style={{ color: 'var(--text3)', fontSize: '0.8125rem', marginBottom: 10, lineHeight: 1.4 }}>
-        Tap a letter to study it. Practice starts with Georgian → sound; sound → Georgian unlocks after solid recognition.
+        Tap a letter to study it. Practice mixes recognition and typing — romanization is only a bridge.
       </p>
 
       <div className="alpha-mastery">
@@ -421,17 +398,9 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
             type="button"
             className="sound-btn"
             style={{ margin: '12px auto 0', display: 'flex' }}
-            onClick={() => speakLetter(selected.letter)}
-          >
-            ▶ Letter sound
-          </button>
-          <button
-            type="button"
-            className="sound-btn"
-            style={{ margin: '8px auto 0', display: 'flex' }}
             onClick={() => speakWord(selected.example)}
           >
-            ▶ Example word
+            ▶ Listen
           </button>
         </div>
       )}
