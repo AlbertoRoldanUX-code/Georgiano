@@ -294,12 +294,11 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
               autoCorrect="off"
               spellCheck={false}
               disabled={showingFeedback}
-              aria-label="Sound / romanization"
+              aria-label="Romanization"
             />
             {showingFeedback && (
               <div className="recall-answer">
-                Answer: <strong>{letter.ipa}</strong>
-                <span className="recall-answer-roman"> ({letter.roman})</span>
+                Answer: <strong>{letter.roman}</strong>
               </div>
             )}
             <button
@@ -335,10 +334,7 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
                   {q.kind === 'reverse' ? (
                     <span className="option-geo">{opt.letter}</span>
                   ) : (
-                    <>
-                      <span className="option-ipa">{opt.ipa}</span>
-                      <span className="option-meta">{opt.roman}</span>
-                    </>
+                    opt.roman
                   )}
                 </button>
               )
