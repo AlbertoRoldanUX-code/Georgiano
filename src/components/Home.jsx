@@ -109,6 +109,11 @@ export default function Home({ navigate, progress }) {
           )
         })}
       </div>
+
+      <footer className="home-footer">
+        <p>Feedback or ideas? Write to</p>
+        <a href="mailto:alberto@iberiancaucasus.com">alberto@iberiancaucasus.com</a>
+      </footer>
     </div>
   )
 }

@@ -316,6 +316,23 @@ body {
   color: var(--text3);
   margin-bottom: 10px;
 }
+.home-footer {
+  margin-top: 36px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  text-align: center;
+  font-size: 0.8125rem;
+  color: var(--text3);
+  line-height: 1.5;
+}
+.home-footer a {
+  color: var(--primary);
+  font-weight: 600;
+  text-decoration: none;
+}
+.home-footer a:hover {
+  text-decoration: underline;
+}
 .module-step {
   width: 40px;
   height: 40px;
