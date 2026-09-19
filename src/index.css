@@ -90,6 +90,16 @@ body {
   border-color: var(--primary);
   color: var(--primary);
 }
+.nav-action:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  border-color: var(--border);
+  color: var(--text3);
+}
+.nav-action:disabled:hover {
+  border-color: var(--border);
+  color: var(--text3);
+}
 
 /* ── Progress bar ── */
 .pbar {

@@ -22,6 +22,7 @@ const initial = {
   picked: null,
   typed: '',
   score: { c: 0, w: 0 },
+  answers: [],
   step: 0,
 }
 
@@ -46,16 +47,20 @@ function reducer(state, action) {
         picked: null,
         typed: '',
         score: { c: 0, w: 0 },
+        answers: [],
         step: 1,
       }
     }
     case 'answer': {
       if (state.status !== 'prompt' || state.done) return state
+      const answers = [...state.answers]
+      answers[state.idx] = action.correct
       return {
         ...state,
         status: 'feedback',
         picked: action.picked,
         typed: action.typed ?? state.typed,
+        answers,
         score: {
           c: state.score.c + (action.correct ? 1 : 0),
           w: state.score.w + (action.correct ? 0 : 1),
@@ -78,6 +83,27 @@ function reducer(state, action) {
         opts: optsFor(state.questions[next]),
         picked: null,
         typed: '',
+        step: state.step + 1,
+      }
+    }
+    case 'prev': {
+      if (state.idx <= 0 || state.status === 'feedback') return state
+      const prev = state.idx - 1
+      const answers = [...state.answers]
+      let { c, w } = state.score
+      if (answers[prev] === true) c -= 1
+      else if (answers[prev] === false) w -= 1
+      answers[prev] = undefined
+      return {
+        ...state,
+        done: false,
+        status: 'prompt',
+        idx: prev,
+        opts: optsFor(state.questions[prev]),
+        picked: null,
+        typed: '',
+        score: { c, w },
+        answers,
         step: state.step + 1,
       }
     }
@@ -255,6 +281,15 @@ export default function AlphabetLesson({ navigate, progressAPI }) {
             ‹
           </button>
           <span className="nav-title">Practice</span>
+          <button
+            type="button"
+            className="nav-action"
+            disabled={state.idx === 0 || showingFeedback}
+            onClick={() => dispatch({ type: 'prev' })}
+            aria-label="Previous exercise"
+          >
+            Previous
+          </button>
         </nav>
 
         <div className="pbar">
